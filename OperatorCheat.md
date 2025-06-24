@@ -80,6 +80,16 @@
     - [Remove-BHPathQuery](#remove-bhpathquery)
     - [Set-BHPathQuery](#set-bhpathquery)
     - [Set-BHPathQueryScope](#set-bhpathqueryscope)
+- [BHAssetGroup](#bhassetgroup)
+    - [Get-BHAssetGroup](#get-bhassetgroup)
+    - [New-BHAssetGroup](#new-bhassetgroup)
+    - [Remove-BHAssetGroup](#remove-bhassetgroup)
+    - [Set-BHAssetGroup](#set-bhassetgroup)
+    - [Get-BHAssetGroupSelector](#get-bhassetgroupselector)
+    - [New-BHAssetGroupSelector](#new-bhassetgroupselector)
+    - [Remove-BHAssetGroupSelector](#remove-bhassetgroupselector)
+    - [Set-BHAssetGroupSelector](#set-bhassetgroupselector)
+    - [Test-BHAssetGroupSelector](#test-bhassetgroupselector)
 - [BHClient](#bhclient)
     - [Get-BHClient](#get-bhclient)
     - [New-BHClient](#new-bhclient)
@@ -2603,13 +2613,15 @@ Get BloodHound Query
 #### **Syntax:**
 
 ```PowerShell
-Get-BHPathQuery [[-ID] <string[]>] [-Expand <string>] 
+Get-BHPathQuery [[-ID] <string[]>] [-Expand <string>] [-Cypher] 
 
-Get-BHPathQuery -Name <string[]> [-Expand <string>] 
+Get-BHPathQuery -Name <string[]> [-Expand <string>] [-Cypher] 
 
-Get-BHPathQuery -Scope <string> [-Expand <string>] 
+Get-BHPathQuery -Scope <string> [-Expand <string>] [-Cypher] 
 
-Get-BHPathQuery -Description <string[]> [-Expand <string>]
+Get-BHPathQuery -Description <string[]> [-Expand <string>] [-Cypher] 
+
+Get-BHPathQuery -OnlineLibrary [-Expand <string>] [-Cypher]
 ```
 
 #### **Examples:**
@@ -2664,7 +2676,7 @@ Invoke BloodHound Query
 #### **Syntax:**
 
 ```PowerShell
-Invoke-BHPathQuery [-Query] <string> [[-Description] <string>] [[-Name] <string>] [[-ID] <string>] [[-Param] <hashtable>] [[-Expand] <string>] [[-Select] <string[]>] [-Minimal] [-Cypher]
+Invoke-BHPathQuery [-Query] <string> [[-Description] <string>] [[-Name] <string>] [[-ID] <string>] [[-Platform] <string[]>] [[-Category] <string>] [[-Param] <hashtable>] [[-Expand] <string>] [[-Select] <string[]>] [-Minimal] [-Cypher]
 ```
 
 #### **Examples:**
@@ -2714,7 +2726,7 @@ New BloodHound Query
 #### **Syntax:**
 
 ```PowerShell
-New-BHPathQuery [-Name] <string> [[-Description] <string>] [-Query] <string> [-PassThru]
+New-BHPathQuery [-Name] <string> [[-Description] <string>] [-Query] <string> [-Public] [-PassThru]
 ```
 
 #### **Examples:**
@@ -2851,6 +2863,335 @@ Set-BHQueryScope -ID 123 -Share <UserID[]>-Remove
 ```
 
 See `Help Set-BHQueryScope` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+</br>
+
+## **BHASSETGROUP**
+
+### **Get-BHAssetGroup**
+
+**Alias**: `BHZone`
+
+Get BH Asset Group
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHAssetGroup [[-GroupID] <int>] 
+
+Get-BHAssetGroup [-GroupID] <int> -Member 
+
+Get-BHAssetGroup [-GroupID] <int> -Member -Count 
+
+Get-BHAssetGroup [-GroupID] <int> [-AssetID] <string> [-Selector]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > BHAssetGroup
+
+```
+
+See `Help BHZone` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHAssetGroup**
+
+**Alias**: `New-BHZone`
+
+
+New-BHAssetGroup [-Name] <string> [[-Type] <string>] [[-Description] <string>] [[-Position] <int>] [-RequireCertiFy] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+New-BHAssetGroup [-Name] <string> [[-Type] <string>] [[-Description] <string>] [[-Position] <int>] [-RequireCertiFy]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help New-BHZone` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Remove-BHAssetGroup**
+
+**Alias**: `Remove-BHZone`
+
+
+Remove-BHAssetGroup [-GroupID] <int> [-Force <int>] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Remove-BHAssetGroup [-GroupID] <int> [-Force <int>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help Remove-BHZone` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Set-BHAssetGroup**
+
+**Alias**: `Set-BHZone`
+
+
+Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Type <string>] [-Description <string>] [-Position <int>] [-RequireCertify <bool>] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Type <string>] [-Description <string>] [-Position <int>] [-RequireCertify <bool>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help Set-BHZone` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHAssetGroupSelector**
+
+**Alias**: `BHSelector`
+
+Get BH Asset Group Selector
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHAssetGroupSelector [-GroupID] <int> 
+
+Get-BHAssetGroupSelector [-GroupID] <int> [-SelectorID] <int> [-Seeds] 
+
+Get-BHAssetGroupSelector [-GroupID] <int> [-SelectorID] <int> -Member 
+
+Get-BHAssetGroupSelector [-GroupID] <int> [-SelectorID] <int> -Member -Count
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > BHSelector 1 21
+
+```
+
+See `Help BHSelector` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHAssetGroupSelector**
+
+**Alias**: `New-BHSelector`
+
+New BH Asset Group Selector
+
+#### **Syntax:**
+
+```PowerShell
+New-BHAssetGroupSelector [-GroupID] <string> [-Name] <string> [-Seed] <string[]> [-SeedType <string>] [-Description <string>] [-AutoCertify <bool>] [-Disabled <bool>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > New-BHSelector 1 test "MATCH (x:User) RETURN x LIMIT 1"
+
+```
+
+See `Help New-BHSelector` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Remove-BHAssetGroupSelector**
+
+Remove BH Asset Group Selector
+
+#### **Syntax:**
+
+```PowerShell
+Remove-BHAssetGroupSelector [-GroupID] <int> [-SelectorID] <int> [-Force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Remove-BHSelector 1 44 -force
+
+```
+
+See `Help Remove-BHAssetGroupSelector` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Set-BHAssetGroupSelector**
+
+**Alias**: `Set-BHSelector`
+
+New BH Asset Group Selector
+
+#### **Syntax:**
+
+```PowerShell
+Set-BHAssetGroupSelector [-GroupID] <string> [-SelectorID] <string> [-Name <string>] [-Seed <string[]>] [-SeedType <string>] [-Description <string>] [-AutoCertify <bool>] [-Disabled <bool>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > New-BHSelector 1 44 -name test
+
+```
+
+See `Help Set-BHSelector` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Test-BHAssetGroupSelector**
+
+**Alias**: `Test-BHSelector`
+
+Test BH Asset Group Selector
+
+#### **Syntax:**
+
+```PowerShell
+Test-BHAssetGroupSelector [-Seed] <string> [[-SeedType] <string>] [-Count]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Test-BHSelector "MATCH (x:User) RETURN x LIMIT 5"
+
+```
+
+See `Help Test-BHSelector` for more info
 
 </br>
 
@@ -3304,6 +3645,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Thursday, March 13, 2025 10:15:06 AM
+Tuesday, June 24, 2025 10:40:59 PM
 
 

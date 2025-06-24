@@ -1,10 +1,5 @@
 ## BloodHoundOperator
-# Thursday, March 13, 2025 9:07:23 AM
-# > Add NTLM Edges
-# > Add Limited OwnerShip Edges
-
-
-################################################################
+# Tuesday, June 24, 2025 8:41:04 PM
 
 ## BloodHound Operator - BHComposer (BHCE Only)
 # New-BHComposer
@@ -1638,18 +1633,19 @@ function Get-BHOperatorHelp{
             }}
         }
         else{$CmdletList = @(
-            Get-Command *-BHComposer* | sort-object Noun,Verb
-            Get-Command *-BHSession*  | sort-object Noun,Verb
-            Get-Command *-BHAPI*      | sort-object Noun,Verb
-            Get-Command *-BHServer*   | sort-object Noun,Verb
-            Get-Command *-BHOperator* | sort-object Noun,Verb
-            Get-Command *-BHData*     | sort-object Noun,Verb
-            Get-Command *-BHNode*     | sort-object Noun,Verb
-            Get-Command *-BHPath*     | sort-object Noun,Verb
-            Get-Command *-BHClient*   | sort-object Noun,Verb
-            Get-Command *-BHEvent*    | sort-object Noun,Verb
-            Get-Command *-BHRRule*    | sort-object Noun,Verb
-            Get-Command *-BHDate*     | sort-object Noun,Verb
+            Get-Command *-BHComposer*   | sort-object Noun,Verb
+            Get-Command *-BHSession*    | sort-object Noun,Verb
+            Get-Command *-BHAPI*        | sort-object Noun,Verb
+            Get-Command *-BHServer*     | sort-object Noun,Verb
+            Get-Command *-BHOperator*   | sort-object Noun,Verb
+            Get-Command *-BHData*       | sort-object Noun,Verb
+            Get-Command *-BHNode*       | sort-object Noun,Verb
+            Get-Command *-BHPath*       | sort-object Noun,Verb
+            Get-Command *-BHClient*     | sort-object Noun,Verb
+            Get-Command *-BHEvent*      | sort-object Noun,Verb
+            Get-Command *-BHRRule*      | sort-object Noun,Verb
+            Get-Command *-BHDate*       | sort-object Noun,Verb
+            Get-Command *-BHAssetGroup* | sort-object Noun,Verb
             )
         $Out = Foreach($Cmdlet in $CmdletList){
             $Als = Get-Alias -Definition $Cmdlet.name -ea 0 | Select -first 1
@@ -2911,10 +2907,10 @@ function Get-BHNodeGroup{
     Begin{}
     Process{Foreach($ObjID in $ID){
         Switch($PSCmdlet.ParameterSetName){
-            List      {if($Selector){Invoke-BHAPI api/v2/asset-groups/$ObjID -expand data.selectors}
+            List{if($Selector){Invoke-BHAPI api/v2/asset-group-tags/$ObjID/selectors}
                 else{Invoke-BHAPI api/v2/asset-groups/$ObjID -expand data}
                 }
-            Member    {$qFilter = if($EnvironmentID){"environment_id=eq:$EnvironmentID"}else{$Null}
+            Member{$qFilter = if($EnvironmentID){"environment_id=eq:$EnvironmentID"}else{$Null}
                 if($Count){Invoke-BHAPI api/v2/asset-groups/$ObjID/members/counts -filter $qFilter -expand data}
                 else{Invoke-BHAPI api/v2/asset-groups/$ObjID/members -filter $qFilter -expand data.members}
                 }
@@ -3131,6 +3127,7 @@ enum BHEdgeGroup{
     ADCredentialAccess
     ADObjectBasic
     ADObjectAdvanced
+    ADCrossForest
     ADCertService
     ADNTLMRelay
     # AZ
@@ -3153,7 +3150,9 @@ enum BHEdge{
     GPLink
     HasSIDHistory
     MemberOf
+    # Remove later
     TrustedBy
+    SameForestTrust
     # ADLateralMovement
     AdminTo
     AllowedToAct
@@ -3200,6 +3199,9 @@ enum BHEdge{
     ADCSESC10a
     ADCSESC10b
     ADCSESC13
+    # ADCrossForest
+    SpoofSIDHistory
+    AbuseTGTDelegation
     # X-Platform
     SyncedToEntraUser
     # NTLMRelay
@@ -3284,7 +3286,8 @@ function Get-BHPathFilter{
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='GPLink'}
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='HasSIDHistory'}
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='MemberOf'}
-        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='TrustedBy'}
+        #[PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='TrustedBy'}
+        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='SameForestTrust'}
         # Lateral Movement
         [PSCustomObject]@{Platform='AD'; Group='ADLateralMovement'; Edge='AdminTo'}
         [PSCustomObject]@{Platform='AD'; Group='ADLateralMovement'; Edge='AllowedToAct'}
@@ -3331,6 +3334,9 @@ function Get-BHPathFilter{
         [PSCustomObject]@{Platform='AD'; Group='ADCertService'; Edge='ADCSESC10a'}
         [PSCustomObject]@{Platform='AD'; Group='ADCertService'; Edge='ADCSESC10b'}
         [PSCustomObject]@{Platform='AD'; Group='ADCertService'; Edge='ADCSESC13'}
+        # Cross Forest Trust Abuse
+        [PSCustomObject]@{Platform='AD'; Group='ADCrossForest'; Edge='SpoofSIDHistory'}
+        [PSCustomObject]@{Platform='AD'; Group='ADCrossForest'; Edge='AbuseTGTDelegation'}
         # X-Platform
         [PSCustomObject]@{Platform='AD'; Group='CrossPlatform'; Edge='SyncedToEntraUser'}
         # NTLM Relay
@@ -3597,7 +3603,9 @@ function Get-BHPathComposition{
             "target_node=$TargetID",
             "edge_type=$EdgeType"
             )
-        $CompData = BHAPI api/v2/graphs/edge-composition -Filter $qFilter -dot data
+        #$RelayEdges = 'CoerceAndRelayNTLMToSMB','CoerceAndRelayNTLMToLDAP','CoerceAndRelayNTLMToLDAPS','CoerceAndRelayNTLMToADCS'
+        $CallURL=if($EdgeType -IN $RelayEdges){'api/v2/graphs/relay-targets'}else{'api/v2/graphs/edge-composition'}
+        $CompData = BHAPI $CallURL -Filter $qFilter -dot data
         for($i=0;$i -lt $CompData.edges.count;$i++){
             $CurrentEdge = $CompData.edges[$i]
             $SrcNode     = $CompData.Nodes.$($CurrentEdge.source)
@@ -3653,17 +3661,22 @@ function Get-BHPathQuery{
         [ValidateSet('public','shared')]
         [Parameter(Mandatory=1,ParameterSetName='ByScope')][String]$Scope,
         [Parameter(Mandatory=1,ParameterSetName='ByDescription')][String[]]$Description,
-        [Parameter(Mandatory=0)][String]$Expand='data'
+        [Parameter(Mandatory=1,ParameterSetName='FromRepo')][Alias('FromMartin')][Switch]$OnlineLibrary,
+        [Parameter(Mandatory=0)][String]$Expand='data',
+        [Parameter(Mandatory=0)][SWitch]$Cypher
         )
     NoMultiSession
-    Switch($PSCmdlet.ParameterSetName){
+    $Out = Switch($PSCmdlet.ParameterSetName){
         ByID{$Q=BHAPI api/v2/saved-queries -expand $Expand
             if($ID){$Q|Where id -In $ID}else{$Q}
             }
         ByName{BHAPI api/v2/saved-queries -Filter "name=~eq:$Name" -expand $Expand}
         ByDescription{BHAPI api/v2/saved-queries -Filter "description=~eq:$Description" -expand $expand}
         ByScope{BHAPI api/v2/saved-queries -Filter "scope=$Scope" -expand $expand}
+        FromRepo{irm https://raw.githubusercontent.com/SpecterOps/BloodHoundQueryLibrary/refs/heads/main/Queries.json | sort name -unique}
         }
+    if($Cypher -AND -Not$OnlineLibray){if(($BHSession|? x|Select -last 1).CypherClip){$Out.Query.trim()|Set-Clipboard};RETURN $Out.Query.trim()}
+    else{$Out}
     }
 #End
 
@@ -3783,6 +3796,7 @@ Function Remove-BHPathQuery{
     Begin{NoMultiSession}
     Process{foreach($Qid in $ID){if($Force -OR (Confirm-Action "Delete saved query ID $Qid")){
         Invoke-BHAPI api/v2/saved-queries/$Qid -Method DELETE | out-Null
+        Start-Sleep -Milliseconds 10
         }}}
     End{}
     }
@@ -3808,7 +3822,9 @@ Function Invoke-BHPathQuery{
         [Parameter(Mandatory=1,ValueFromPipeline,ValueFromPipelineByPropertyName)][String]$Query,
         [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Description,
         [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Name,
-        [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$ID,
+        [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][Alias('GUID')][String]$ID,
+        [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][ALias('Platforms')][String[]]$Platform,
+        [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Category,
         [Parameter(Mandatory=0)][Hashtable]$Param,
         [Parameter(Mandatory=0)][Switch]$Minimal,
         [Parameter(Mandatory=0)][String]$Expand,
@@ -3830,9 +3846,11 @@ Function Invoke-BHPathQuery{
         if($Select){$QRes = $QRes | Select-Object $Select}
         $Obj = [PSCustomObject]@{}
         if($ID){$Obj|Add-Member -MemberType NoteProperty -Name ID -Value $ID}
+        if($Platform){$Obj|Add-Member -MemberType NoteProperty -Name Platform -Value $Platform}
+        if($Category){$Obj|Add-Member -MemberType NoteProperty -Name Category -Value $Category}
         if($Name){$Obj|Add-Member -MemberType NoteProperty -Name Name -Value $Name}
         if($Description){$Obj|Add-Member -MemberType NoteProperty -Name Description -Value $Description}
-        $Obj|Add-Member -MemberType NoteProperty -Name Query -Value $CQ
+        $Obj|Add-Member -MemberType NoteProperty -Name Query -Value $CQ.trim()
         $Obj|Add-Member -MemberType NoteProperty -Name Result -Value $QRes
         $Obj|Add-Member -MemberType NoteProperty -Name Count -Value $(if($Qres.SourceType -AND $QRes.Step){$Qres[-1].id+1}else{$QRes.Count})
         $Obj|Add-Member -MemberType NoteProperty -Name Timestamp -Value $QStart
@@ -3856,11 +3874,11 @@ function New-BHPathQuery{
     [Alias('New-BHQuery')]
     Param(
         [Parameter(Mandatory=1,ValueFromPipelineByPropertyName)][String]$Name,
-        #[ValidateSet('AD','AZ')]
-        #[Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Platform,
-        #[Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Category,
+        #[Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Platform='Other',
+        #[Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Category='Custom',
         [Parameter(Mandatory=0,ValueFromPipelineByPropertyName)][String]$Description='Custom Query',
         [Parameter(Mandatory=1,ValueFromPipelineByPropertyName)][String]$Query,
+        [Parameter(Mandatory=0)][Switch]$Public,
         [Parameter(Mandatory=0)][Switch]$PassThru
         )
     Begin{NoMultiSession}
@@ -3875,7 +3893,9 @@ function New-BHPathQuery{
         #if($Category){$Body['Category']=$Category}
         if($Description){$Body['Description']=$Description}
         $SQ = Invoke-BHAPI api/v2/saved-queries -Method POST -Body ($Body| ConvertTo-Json) -expand data
+        if($SQ.id -AND $Public){Set-BHQueryScope -ID $SQ.id -Public}
         if($PassThru){$SQ}
+        Start-Sleep -Milliseconds 10
         }}
     End{}
     }
@@ -3883,6 +3903,305 @@ function New-BHPathQuery{
 
 
 #EOF
+
+## BHAssetGroup [BHZone] // BHAssetGroupSelector [BHSelector]
+##############################################################
+# Get-BHAssetGroup
+# New-BHAssetGroup                                  [BHE Only] ??
+# Set-BHAssetGroup                                  [BHE Only] ??
+# Remove-BHAssetGroup                               [BHE Only] ??
+# Get-BHAssetGroupSelector
+# Test-BHAssetGroupSelector
+# New-BHAssetGroupSelector
+# Set-BHAssetGroupSelector
+# Remove-BHAssetGroupSelector
+##############################################################
+
+<#
+.SYNOPSIS
+    Get BH Asset Group
+.DESCRIPTION
+    Get BloodHound Asset Groups
+.EXAMPLE
+    BHAssetGroup
+#>
+function Get-BHAssetGroup{
+    [Alias('BHZone','Get-BHZone')]
+    [CmdletBinding(DefaultParameterSetName='Group')]
+    Param(
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Search')]
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Count')]
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Member')]
+        [Parameter(Mandatory=0,Position=0,ParameterSetName='Group')][Int]$GroupID,
+        #[Parameter(Mandatory=1,ParameterSetName='Search')]
+        [Parameter(Mandatory=1,ParameterSetName='Count')]
+        [Parameter(Mandatory=1,ParameterSetName='Member')][Switch]$Member,
+        [Parameter(Mandatory=1,ParameterSetName='Count')][Switch]$Count,
+        [Parameter(Mandatory=1,Position=1,ParameterSetName='Search')][String]$AssetID,
+        [Parameter(Mandatory=0,ParameterSetName='Search')][Switch]$Selector
+        )
+    if(-Not$GroupID){BHAPI /asset-group-tags -Expand data.tags}
+    else{if($Count){BHAPI /asset-group-tags/$GroupID/members/counts -Expand data.counts}
+        elseif($AssetID){
+            $Exp=if($Selector){'data.member.selectors'}else{'data.member'}
+            BHAPI /asset-group-tags/$GroupID/members/$AssetID -Expand $exp}
+        elseif($Member){BHAPI /asset-group-tags/$GroupID/members -Expand data.members}
+        else{BHAPI /asset-group-tags/$GroupID -Expand data.tag}
+        }
+    }
+#End
+
+
+
+<#
+.SYNOPSIS
+    New BH Asset Group
+.DESCRIPTION
+    Create BloodHound Asset Group
+.EXAMPLE
+    New-BHAssetGroup -Name MyAssetGroup -type Label
+#>
+function New-BHAssetGroup{
+    [Alias('New-BHZone')]
+    Param(
+        [Parameter(Mandatory=1)][String]$Name,
+        [ValidateSet('Tier','Label')]
+        [Parameter(Mandatory=0)][String]$Type='Label',
+        [Parameter(Mandatory=0)][String]$Description='Privilege Zone',
+        [Parameter(Mandatory=0)][int]$Position,
+        [Parameter(Mandatory=0)][Switch]$RequireCertiFy
+        )
+    NoMultiSession;BHEOnly
+    if(($Type -eq 'Label') -AND ('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys)){
+        Write-Warning "[BH] Asset group position only applies to Tiers. Remove -Position or set -Type Tier";RETURN
+        }
+    $AssGrp = @{
+        name            = $Name
+        type            = Switch($Type){Tier{0}Label{1}}
+        description     = $Description
+        require_certify = if($RequireCertify){$true}else{$false}
+        }
+    if('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
+        $AssGrp['position'] = $Position
+        }
+    $AssGrp = $AssGrp | ConvertTo-Json -Depth 21
+    BHAPI api/v2/asset-group-tags POST $AssGrp -Expand $Null
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Set BH Asset Group
+.DESCRIPTION
+    Set BloodHound Asset Group
+.EXAMPLE
+    Set-BHAssetGroup -Name MyAssetGroup -type Label
+#>
+function Set-BHAssetGroup{
+    [Alias('Set-BHZone')]
+    Param(
+        [Parameter(Mandatory=0,Position=0)][String]$GroupID,
+        [Parameter(Mandatory=0)][String]$Name,
+        [ValidateSet('Tier','Label')]
+        [Parameter(Mandatory=0)][String]$Type,
+        [Parameter(Mandatory=0)][String]$Description,
+        [Parameter(Mandatory=0)][int]$Position,
+        [Parameter(Mandatory=0)][Bool]$RequireCertify
+        )
+    NoMultiSession;BHEOnly
+    if(($Type -eq 'Label') -AND ('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys)){
+        Write-Warning "[BH] Asset group position only applies to Tiers. Remove -Position or set -Type Tier";RETURN
+        }
+    $AssGrp = @{}
+    if($name){$AssGrp['name'] = $Name}
+    if($type){$AssGrp['type'] = Switch($Type){Tier{0}Label{1}}}
+    if($description){$AssGrp['description'] = $Description}
+    if('RequireCertify' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
+        $AssGrp['require_certify'] = $RequireCertify
+        }
+    if('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
+        $AssGrp['position'] = $Position
+        }
+    if(-Not$AssGrp.keys.count){Write-Warning "[BH] No Parameters passed. Please specify parameter for update";RETURN}
+    $AssGrp = $AssGrp | ConvertTo-Json -Depth 21
+    BHAPI api/v2/asset-group-tags/$GroupID PATCH $AssGrp -Expand $Null
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Remove BH Asset Group
+.DESCRIPTION
+    Remove BloodHound Asset Group
+.EXAMPLE
+    Remove-BHAssetGroup -id 3 -force
+#>
+function Remove-BHAssetGroup{
+    [Alias('Remove-BHZone')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][int]$GroupID,
+        [Parameter()][int]$Force
+        )
+    NoMultiSession;BHEOnly
+    if($Force -OR $(Confirm-Action "[BH] Delete Asset Group $GroupID?")){
+        BHAPI api/v2/asset-group-tags/$GroupID DELETE
+        }
+    }
+#End
+
+<#
+.SYNOPSIS
+    Get BH Asset Group Selector
+.DESCRIPTION
+    Get BloodHound Asset Group Selector
+.EXAMPLE
+    BHSelector 1 21
+#>
+function Get-BHAssetGroupSelector{
+    [CmdletBinding(DefaultParameterSetName='Selector')]
+    [Alias('BHSelector','Get-BHSelector')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('id')][Int]$GroupID,
+        [Parameter(Mandatory=1,Position=1,ParameterSetName='Count')]
+        [Parameter(Mandatory=1,Position=1,ParameterSetName='Member')]
+        [Parameter(Mandatory=1,Position=1,ParameterSetName='SelectorID')][Int]$SelectorID,
+        [Parameter(Mandatory=1,ParameterSetName='Count')]
+        [Parameter(Mandatory=1,ParameterSetName='Member')][Switch]$Member,
+        [Parameter(Mandatory=1,ParameterSetName='Count')][Switch]$Count,
+        [Parameter(Mandatory=0,ParameterSetName='SelectorID')][Switch]$Seeds
+        )
+    if(-Not$SelectorID){BHAPI /asset-group-tags/$GroupID/selectors -Expand data.selectors}
+    else{if($Count){
+            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members 
+            | Group-Object primary_kind -NoElement
+            | Select @{n='primary_kind';e={$_.Name}},count
+            }
+        elseif($Member){BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members}
+        else{$Exp = if($Seeds){'data.selector.seeds'}else{'data.selector'}
+            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID -Expand $exp
+            }
+        }
+    }
+#End
+
+<#
+.SYNOPSIS
+    Test BH Asset Group Selector
+.DESCRIPTION
+    Test BloodHound Asset Group Selector
+.EXAMPLE
+    Test-BHSelector "MATCH (x:User) RETURN x LIMIT 5"
+#>
+function Test-BHAssetGroupSelector{
+    [Alias('Test-BHSelector')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('Value')][String]$Seed,
+        [ValidateSet('Cypher','ObjectID')]
+        [Parameter(Mandatory=0,Position=1)][Alias('Type')][String]$SeedType='Cypher',
+        [Parameter(Mandatory=0)][Switch]$Count
+        )
+    $SType=Switch($seedType){Cypher{2}ObjectID{1}}
+    $Hash=@{seeds=@(@{type=$sType;value=$Seed})}
+    BHAPI /asset-group-tags/preview-selectors POST ($Hash|Convertto-Json -Depth 21) -expand data.members
+    }
+#End
+
+<#
+.SYNOPSIS
+    New BH Asset Group Selector
+.DESCRIPTION
+    New BloodHound Asset Group Selector
+.EXAMPLE
+    New-BHSelector 1 test "MATCH (x:User) RETURN x LIMIT 1"
+#>
+function New-BHAssetGroupSelector{
+    [Alias('New-BHSelector')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][String]$GroupID,
+        [Parameter(Mandatory=1,Position=1)][String]$Name,
+        [Parameter(Mandatory=1,Position=2)][String[]]$Seed,
+        [ValidateSet('Cypher','ObjectID')]
+        [Parameter(Mandatory=0)][string]$SeedType='Cypher',
+        [Parameter(Mandatory=0)][String]$Description,
+        [Parameter(Mandatory=0)][bool]$AutoCertify=$true,
+        [Parameter(Mandatory=0)][bool]$Disabled=$false
+        )
+    $sType = Switch($SeedType){Cypher{2}objectid{1}}
+    $Seeds = $Seed|%{@{type=$sType;value=$_}}
+    $Hash  = @{
+        name  = $Name
+        seeds = @($Seeds)
+        auto_certify = $AutoCertify
+        disabled = $Disabled
+        }
+    if($Description){$Hash['description']=$Description}
+    BHAPI /asset-group-tags/$GroupID/selectors POST $($Hash|Convertto-Json -Depth 21) -expand data
+    }
+
+
+<#
+.SYNOPSIS
+    New BH Asset Group Selector
+.DESCRIPTION
+    New BloodHound Asset Group Selector
+.EXAMPLE
+    New-BHSelector 1 44 -name test
+#>
+function Set-BHAssetGroupSelector{
+    [Alias('Set-BHSelector')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][String]$GroupID,
+        [Parameter(Mandatory=1,Position=1)][String]$SelectorID,
+        [Parameter(Mandatory=0)][String]$Name,
+        [Parameter(Mandatory=0)][String[]]$Seed,
+        [ValidateSet('Cypher','ObjectID')]
+        [Parameter(Mandatory=0)][string]$SeedType,
+        [Parameter(Mandatory=0)][String]$Description,
+        [Parameter(Mandatory=0)][bool]$AutoCertify,
+        [Parameter(Mandatory=0)][bool]$Disabled
+        )
+    if(($SeedType -AND -NOT$Seed) -OR ($Seed -AND -NOT$SeedType)){
+        Write-Warning "[BH] Please Specify Seed and SeedType"
+        RETURN
+        }
+    if($SeedType){$sType=Switch($SeedType){Cypher{2}objectid{1}}}
+    if($Seed){$Seeds=$Seed|%{@{type=$sType;value=$_}}}
+    $Hash=@{}
+    if($Name){$Hash['name']=$Name}
+    if($Seed){$Hash['seeds']=$Seeds}
+    if($Description){$Hash['description']=$Description}
+    if($PSCmdlet.MyInvocation.BoundParameters.keys -contains 'AutoCertify'){$Hash['auto-certify']=$AutoCertify}
+    if($PSCmdlet.MyInvocation.BoundParameters.keys -contains 'Disabled'){$Hash['disabled']=$Disabled}
+    #$($Hash|Convertto-Json -Depth 21)
+    BHAPI /asset-group-tags/$GroupID/selectors/$SelectorID PATCH $($Hash|Convertto-Json -Depth 21) -expand data
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Remove BH Asset Group Selector
+.DESCRIPTION
+    Remove BloodHound Asset Group Selector
+.EXAMPLE
+    Remove-BHSelector 1 44 -force
+#>
+function Remove-BHAssetGroupSelector{
+    Param(
+        [Parameter(Mandatory=1)][int]$GroupID,
+        [Parameter(Mandatory=1)][int]$SelectorID,
+        [Parameter(Mandatory=0)][Switch]$Force
+        )
+    if($Force -OR $(Confirm-Action "[BH] Delete Selector $SelectorID from Asset Group $GroupID")){
+    BHAPI /asset-group-tags/$GroupID/selectors/$SelectorID DELETE
+    }}
+#End
+
+
+# ToDo - List kinds ??
+# BHAPI api/v2/graphs/kinds -Expand data.kinds <- Not great output (WiP?)... :(
 
 ### BloodHoundOperator - BHUtils
 # Read-SecureString
@@ -4223,101 +4542,114 @@ function NoMultiSession{
 # Get-BHDataPosture
 
 enum BHFindingType{
+    ASREPRoasting
     AzureNonT0ManagedIdentityAssignment
     AzureT0AddMembers
+    AzureT0AddOwner
+    AzureT0AddSecret
+    AzureT0AKSContributor
+    AzureT0AppAdmin
+    AzureT0AutomationContributor
     AzureT0AvereContributor
+    AzureT0CloudAppAdmin
+    AzureT0Contributor
+    AzureT0ExecuteCommand
     AzureT0GetCerts
     AzureT0GetKeys
     AzureT0GetSecrets
+    AzureT0KeyVaultContributor
+    AzureT0LogicAppContributor
     AzureT0MGAddMember
     AzureT0MGAddOwner
     AzureT0MGAddSecret
     AzureT0MGGrantAppRoles
     AzureT0MGGrantRole
-    AzureT0ResetPassword
-    AzureT0VMContributor
-    AzureT0ExecuteCommand
-    AzureT0LogicAppContributor
-    AzureT0AutomationContributor
-    AzureT0AddOwner
-    AzureT0Owns
     AzureT0Owner
-    AzureT0AddSecret
-    AzureT0UserAccessAdministrator
-    AzureT0Contributor
-    AzureT0KeyVaultContributor
-    AzureT0WebsiteContributor
-    AzureT0VMAdminLogin
-    AzureT0CloudAppAdmin
-    AzureT0AppAdmin
-    AzureT0AKSContributor
+    AzureT0Owns
+    AzureT0ResetPassword
+    AzureT0RoleActivationNoMFA
     AzureT0SyncedToEntraUser
-    LargeDefaultGroupsForceChangePassword
+    AzureT0UserAccessAdministrator
+    AzureT0VMAdminLogin
+    AzureT0VMContributor
+    AzureT0WebsiteContributor
+    Kerberoasting
+    LargeDefaultGroupsAddAllowedToAct
+    LargeDefaultGroupsAddKeyCredentialLink
     LargeDefaultGroupsAddMember
     LargeDefaultGroupsAddSelf
     LargeDefaultGroupsAdmins
-    LargeDefaultGroupsPSRemote
-    LargeDefaultGroupsRDP
-    LargeDefaultGroupsSQLAdmin
-    LargeDefaultGroupsOwns
-    LargeDefaultGroupsAddAllowedToAct
     LargeDefaultGroupsAllExtendedRights
+    LargeDefaultGroupsCoerceAndRelayNTLMToADCS
+    LargeDefaultGroupsCoerceAndRelayNTLMToLDAP
+    LargeDefaultGroupsCoerceAndRelayNTLMToLDAPS
+    LargeDefaultGroupsCoerceAndRelayNTLMToSMB
     LargeDefaultGroupsDCOM
+    LargeDefaultGroupsForceChangePassword
     LargeDefaultGroupsGenericAll
     LargeDefaultGroupsGenericWrite
+    LargeDefaultGroupsOwns
+    LargeDefaultGroupsOwnsLimitedRights
+    LargeDefaultGroupsPSRemote
+    LargeDefaultGroupsRDP
     LargeDefaultGroupsReadGMSA
     LargeDefaultGroupsReadLAPS
+    LargeDefaultGroupsSQLAdmin
+    LargeDefaultGroupsSyncLAPSPassword
+    LargeDefaultGroupsWriteAccountRestrictions
     LargeDefaultGroupsWriteDacl
     LargeDefaultGroupsWriteGPLink
     LargeDefaultGroupsWriteOwner
-    LargeDefaultGroupsAddKeyCredentialLink
+    LargeDefaultGroupsWriteOwnerLimitedRights
     LargeDefaultGroupsWriteSPN
-    LargeDefaultGroupsWriteAccountRestrictions
-    LargeDefaultGroupsSyncLAPSPassword
-    T0Logins
-    T0Admins
-    T0DCOM
-    T0AddSelf
-    T0PSRemote
-    T0RDP
-    T0SQLAdmin
-    T0AddAllowedToAct
-    T0AddMember
-    T0AllExtendedRights
-    T0AllowedToAct
-    T0AllowedToDelegate
-    T0ForceChangePassword
-    T0GenericAll
-    T0GenericWrite
-    T0HasSIDHistory
-    T0Owns
-    T0ReadGMSA
-    T0DumpSMSA
-    T0ReadLAPS
-    T0WriteDACL
-    T0WriteGPLink
-    T0WriteOwner
-    T0WriteAccountRestrictions
-    T0SyncLAPSPassword
-    T0AddKeyCredentialLink
-    T0WriteSPN
-    T0CoerceToTGT
     NonT0DCSyncers
-    T0MarkSensitive
-    Kerberoasting
-    ASREPRoasting
-    T0GoldenCert
     T0ADCSESC1
+    T0ADCSESC10a
+    T0ADCSESC10b
+    T0ADCSESC13
     T0ADCSESC3
     T0ADCSESC4
     T0ADCSESC6a
     T0ADCSESC6b
     T0ADCSESC9a
     T0ADCSESC9b
-    T0ADCSESC10a
-    T0ADCSESC10b
-    T0ADCSESC13
+    T0AddAllowedToAct
+    T0AddKeyCredentialLink
+    T0AddMember
+    T0AddSelf
+    T0Admins
+    T0AllExtendedRights
+    T0AllowedToAct
+    T0AllowedToDelegate
+    T0CoerceAndRelayNTLMToADCS
+    T0CoerceAndRelayNTLMToLDAP
+    T0CoerceAndRelayNTLMToLDAPS
+    T0CoerceAndRelayNTLMToSMB
+    T0CoerceToTGT
+    T0DCOM
+    T0DumpSMSA
+    T0ForceChangePassword
+    T0GenericAll
+    T0GenericWrite
+    T0GoldenCert
+    T0HasSIDHistory
+    T0Logins
+    T0MarkSensitive
+    T0Owns
+    T0OwnsLimitedRights
+    T0PSRemote
+    T0RDP
+    T0ReadGMSA
+    T0ReadLAPS
+    T0SQLAdmin
     T0SyncedToADUser
+    T0SyncLAPSPassword
+    T0WriteAccountRestrictions
+    T0WriteDACL
+    T0WriteGPLink
+    T0WriteOwner
+    T0WriteOwnerLimitedRights
+    T0WriteSPN
     }
 #End
 
