@@ -4746,7 +4746,7 @@ function Get-BHPathFinding{
         if($PSCmdlet.ParameterSetName -eq 'ListAll'){BHAPI api/v2/attack-path-types -expand data}
         }
     Process{Foreach($DomID in $DomainID){
-        if($PSCmdlet.ParameterSetName -ne 'trend'){$FindType = if(-Not$FindingType){BHAPI api/v2/domains/$DomID/available-types -expand data}else{$FindingType}}
+        if($PSCmdlet.ParameterSetName -ne 'trend'){$FindType = if(-Not$FindingType.count){BHAPI api/v2/domains/$DomID/available-types -expand data}else{$FindingType}}
         Switch($PSCmdlet.ParameterSetName){
                 Avail {$FindType}
                 Detail{[Array]$qFilter=@()
