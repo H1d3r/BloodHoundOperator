@@ -91,6 +91,17 @@
     - [Set-BHAssetGroupSelector](#set-bhassetgroupselector)
     - [Test-BHAssetGroupSelector](#test-bhassetgroupselector)
 - [BHOpenGraph](#bhopengraph)
+    - [ConvertTo-BHOpenGraphEdge](#convertto-bhopengraphedge)
+    - [New-BHOpenGraphIngestPayload](#new-bhopengraphingestpayload)
+    - [ConvertTo-BHOpenGraphNode](#convertto-bhopengraphnode)
+    - [Get-BHOpenGraphNodeType](#get-bhopengraphnodetype)
+    - [New-BHOpenGraphNodeType](#new-bhopengraphnodetype)
+    - [Remove-BHOpenGraphNodeType](#remove-bhopengraphnodetype)
+    - [Set-BHOpenGraphNodeType](#set-bhopengraphnodetype)
+    - [Get-BHOpenGraphType](#get-bhopengraphtype)
+    - [New-BHOpenGraphType](#new-bhopengraphtype)
+    - [Remove-BHOpenGraphType](#remove-bhopengraphtype)
+    - [Set-BHOpenGraphType](#set-bhopengraphtype)
 - [BHClient](#bhclient)
     - [Get-BHClient](#get-bhclient)
     - [New-BHClient](#new-bhclient)
@@ -3210,6 +3221,436 @@ See `Help Test-BHSelector` for more info
 
 ## **BHOPENGRAPH**
 
+### **ConvertTo-BHOpenGraphEdge**
+
+**Alias**: `ToBHOpenGraphEdge`
+
+Convert to OpenGraph Edge
+
+#### **Syntax:**
+
+```PowerShell
+ConvertTo-BHOpenGraphEdge [-EdgeType] <string> [[-Start] <string>] [[-End] <string>] [[-SelectProps] <string[]>] -InputObject <psobject[]> [-ExcludeProps <string[]>] [-SourceByName] [-SourceKind <string>] [-TargetByName] [-TargetKind <string>] [-AllowOrphans]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+$RelList | ToBHOpenGraphEdge -Edge CanAbuse -Start <sourceidproperty>-End <targetidproperty>
+
+
+-------------------------- EXAMPLE 2 --------------------------
+
+$RelList | ToBHOpenGraphEdge  -Edge CanAbuse -TargetByName  -SourceByName -Start <sourcenameproperty>-End <targetnameproperty>
+Will match on name instead of objectid when importing
+
+
+-------------------------- EXAMPLE 3 --------------------------
+
+PS > $RelList | ToBHOpenGraphEdge -Edge *
+If $RelList objects have source,edge,target property (ex: Import-Csv)
+Any other props will be used as node property unless -excludeProps is used.
+
+```
+
+See `Help ToBHOpenGraphEdge` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHOpenGraphIngestPayload**
+
+**Alias**: `BHOpenGraphPayload`
+
+New OpenGraph Ingest Payload
+
+#### **Syntax:**
+
+```PowerShell
+New-BHOpenGraphIngestPayload -FromArrows <string> [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] 
+
+New-BHOpenGraphIngestPayload [-NodeList <psobject[]>] [-EdgeList <psobject[]>] [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > BHOpenGraphPayload -NodeList $BHOpenGraphNodeList -EdgeList $BHOpenGraphEdgeList
+
+
+-------------------------- EXAMPLE 2 --------------------------
+
+PS > # Bulk Import from csv files #
+
+$Graph = @{
+Nodelist = Import-Csv BHOpenGraphCSV\Person.csv | ToBHOpenGraphNode *
+EdgeList = Import-Csv BHOpenGraphCSV\EdgeByID.csv | ToBHOpenGraphEdge *
+}
+
+BHOpenGraphPayload @Graph | BHDataUploadJSON
+
+# Node CSV: id,label,[extralabel],name
+# + any other (treated as node properties)
+# Edge CSV: source,edge,target
+# + any other (treated as edge properties)
+# Edge source and target values should be node IDs
+# (use -SourceFromName and/or -TargetFromName to use name values instead)
+
+```
+
+See `Help BHOpenGraphPayload` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **ConvertTo-BHOpenGraphNode**
+
+**Alias**: `ToBHOpenGraphNode`
+
+Convert to OpenGraph Node
+
+#### **Syntax:**
+
+```PowerShell
+ConvertTo-BHOpenGraphNode [-NodeType] <string> [-InputObject] <psobject[]> [[-ExtraType] <string[]>] [-ObjectIDfrom <string>] [-NameFrom <string>] [-SelectProps <string[]>] [-ExcludeProps <string[]>] [-RandomID]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $ObjectList | ToBHOpenGraphNode -Label Person -ExtraLabel CustomNode -NameFrom displayName -ExcludeProps id,displayName
+
+
+-------------------------- EXAMPLE 2 --------------------------
+
+PS > $ObjectList | ToBHOpenGraphNode *
+If objects already have label,(extralabel),id,name property (ex: Import-Csv)
+Any other props will be used as node property unless -excludeProps is used.
+
+```
+
+See `Help ToBHOpenGraphNode` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHOpenGraphNodeType**
+
+**Alias**: `BHOpenGraphType`
+
+Get OpenGraph Node Type
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOpenGraphNodeType [[-NodeType] <string[]>] [-Config]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+BHOpenGraphType [<$NodeType>] [-Config]
+
+```
+
+See `Help BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHOpenGraphNodeType**
+
+**Alias**: `New-BHOpenGraphType`
+
+New OpenGraph Node type
+
+#### **Syntax:**
+
+```PowerShell
+New-BHOpenGraphNodeType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>] 
+
+New-BHOpenGraphNodeType -InputObject <psobject[]>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS >
+
+```
+
+See `Help New-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Remove-BHOpenGraphNodeType**
+
+**Alias**: `Remove-BHOpenGraphType`
+
+Remove OpenGraph Node type
+
+#### **Syntax:**
+
+```PowerShell
+Remove-BHOpenGraphNodeType [-NodeType] <string[]> [-force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+Remove-BHOpenGraphType <$NodeType>[-Force]
+
+```
+
+See `Help Remove-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Set-BHOpenGraphNodeType**
+
+**Alias**: `Set-BHOpenGraphType`
+
+Set Custom Node type
+
+#### **Syntax:**
+
+```PowerShell
+Set-BHOpenGraphNodeType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
+
+```
+
+See `Help Set-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHOpenGraphType**
+
+Get OpenGraph Node Type
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOpenGraphType (alias) -> Get-BHOpenGraphNodeType
+
+Get-BHOpenGraphType [[-NodeType] <string[]>] [-Config]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+BHOpenGraphType [<$NodeType>] [-Config]
+
+```
+
+See `Help Get-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHOpenGraphType**
+
+New OpenGraph Node type
+
+#### **Syntax:**
+
+```PowerShell
+New-BHOpenGraphType (alias) -> New-BHOpenGraphNodeType
+
+New-BHOpenGraphType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>] 
+
+New-BHOpenGraphType -InputObject <psobject[]>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS >
+
+```
+
+See `Help New-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Remove-BHOpenGraphType**
+
+Remove OpenGraph Node type
+
+#### **Syntax:**
+
+```PowerShell
+Remove-BHOpenGraphType (alias) -> Remove-BHOpenGraphNodeType
+
+Remove-BHOpenGraphType [-NodeType] <string[]> [-force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+Remove-BHOpenGraphType <$NodeType>[-Force]
+
+```
+
+See `Help Remove-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Set-BHOpenGraphType**
+
+Set Custom Node type
+
+#### **Syntax:**
+
+```PowerShell
+Set-BHOpenGraphType (alias) -> Set-BHOpenGraphNodeType
+
+Set-BHOpenGraphType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
+
+```
+
+See `Help Set-BHOpenGraphType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
 </br>
 
 ## **BHCLIENT**
@@ -3650,6 +4091,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Tuesday, July 29, 2025 11:12:49 PM
+Tuesday, July 29, 2025 11:28:48 PM
 
 
