@@ -4087,9 +4087,7 @@ function Get-BHAssetGroupSelector{
         )
     if(-Not$SelectorID){BHAPI /asset-group-tags/$GroupID/selectors -Expand data.selectors}
     else{if($Count){
-            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members 
-            | Group-Object primary_kind -NoElement
-            | Select @{n='primary_kind';e={$_.Name}},count
+            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members | Group-Object primary_kind -NoElement | Select @{n='primary_kind';e={$_.Name}},count
             }
         elseif($Member){BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members}
         else{$Exp = if($Seeds){'data.selector.seeds'}else{'data.selector'}
