@@ -90,6 +90,7 @@
     - [Remove-BHAssetGroupSelector](#remove-bhassetgroupselector)
     - [Set-BHAssetGroupSelector](#set-bhassetgroupselector)
     - [Test-BHAssetGroupSelector](#test-bhassetgroupselector)
+- [BHOpenGraph](#bhopengraph)
 - [BHClient](#bhclient)
     - [Get-BHClient](#get-bhclient)
     - [New-BHClient](#new-bhclient)
@@ -2925,9 +2926,7 @@ See `Help BHZone` for more info
 
 **Alias**: `New-BHZone`
 
-
-New-BHAssetGroup [-Name] <string> [[-Type] <string>] [[-Description] <string>] [[-Position] <int>] [-RequireCertiFy] [<CommonParameters>]
-
+New BH Asset Group
 
 #### **Syntax:**
 
@@ -2938,7 +2937,9 @@ New-BHAssetGroup [-Name] <string> [[-Type] <string>] [[-Description] <string>] [
 #### **Examples:**
 
 ```PowerShell
--------------------------- EXAMPLE 1
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > New-BHAssetGroup -Name MyAssetGroup -type Label
 
 ```
 
@@ -2960,9 +2961,7 @@ See `Help New-BHZone` for more info
 
 **Alias**: `Remove-BHZone`
 
-
-Remove-BHAssetGroup [-GroupID] <int> [-Force <int>] [<CommonParameters>]
-
+Remove BH Asset Group
 
 #### **Syntax:**
 
@@ -2973,7 +2972,9 @@ Remove-BHAssetGroup [-GroupID] <int> [-Force <int>]
 #### **Examples:**
 
 ```PowerShell
--------------------------- EXAMPLE 1
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Remove-BHAssetGroup -id 3 -force
 
 ```
 
@@ -2995,9 +2996,7 @@ See `Help Remove-BHZone` for more info
 
 **Alias**: `Set-BHZone`
 
-
-Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Type <string>] [-Description <string>] [-Position <int>] [-RequireCertify <bool>] [<CommonParameters>]
-
+Set BH Asset Group
 
 #### **Syntax:**
 
@@ -3008,7 +3007,9 @@ Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Type <string>] [-Descr
 #### **Examples:**
 
 ```PowerShell
--------------------------- EXAMPLE 1
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Set-BHAssetGroup -Name MyAssetGroup -type Label
 
 ```
 
@@ -3139,7 +3140,7 @@ See `Help Remove-BHAssetGroupSelector` for more info
 
 **Alias**: `Set-BHSelector`
 
-New BH Asset Group Selector
+Set BH Asset Group Selector
 
 #### **Syntax:**
 
@@ -3152,7 +3153,7 @@ Set-BHAssetGroupSelector [-GroupID] <string> [-SelectorID] <string> [-Name <stri
 ```PowerShell
 -------------------------- EXAMPLE 1 --------------------------
 
-PS > New-BHSelector 1 44 -name test
+PS > Set-BHSelector 1 44 -name test
 
 ```
 
@@ -3204,6 +3205,10 @@ See `Help Test-BHSelector` for more info
 </br>
 
 ---
+
+</br>
+
+## **BHOPENGRAPH**
 
 </br>
 
@@ -3645,6 +3650,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Tuesday, June 24, 2025 10:40:59 PM
+Tuesday, July 29, 2025 11:12:49 PM
 
 

@@ -1,5 +1,7 @@
 ## BloodHoundOperator
-# Tuesday, June 24, 2025 8:41:04 PM
+# Tuesday, July 29, 2025 9:12:33 PM
+
+######################################################################
 
 ## BloodHound Operator - BHComposer (BHCE Only)
 # New-BHComposer
@@ -3146,12 +3148,13 @@ enum BHEdgeGroup{
 enum BHEdge{
     ## AD
     # ADStructure
-    Contains
-    GPLink
+    #ClaimSpecialIdentity
+    ContainsIdentity
+    #DCFor
+    GPOAppliesTo
     HasSIDHistory
     MemberOf
-    # Remove later
-    TrustedBy
+    PropagatesACEsTo
     SameForestTrust
     # ADLateralMovement
     AdminTo
@@ -3169,6 +3172,7 @@ enum BHEdge{
     ReadGMSAPassword
     ReadLAPSPassword
     SyncLAPSPassword
+    HasTrustKeys
     # ADObjectBasic
     AddMember
     AddSelf
@@ -3184,6 +3188,7 @@ enum BHEdge{
     # ADObjectAdvanced
     AddAllowedToAct
     AddKeyCredentialLink
+    CanApplyGPO
     WriteAccountRestrictions
     WriteSPN
     WriteGPLink
@@ -3222,6 +3227,8 @@ enum BHEdge{
     AZPrivilegedAuthAdmin
     AZPrivilegedRoleAdmin
     AZRunsAs
+    AZRoleEligible
+    AZRoleApprover
     # AZADObjectBasic
     AZAddMembers
     AZAddOwner
@@ -3282,11 +3289,13 @@ function Get-BHPathFilter{
     $EdgeList = @(
         ## AD
         # Structure
-        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='Contains'}
-        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='GPLink'}
+        #[PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='ClaimSpecialIdentity'}
+        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='ContainsIdentity'}
+        #[PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='DCFor'}
+        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='GPOAppliesTo'}
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='HasSIDHistory'}
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='MemberOf'}
-        #[PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='TrustedBy'}
+        [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='PropagatesACEsTo'}
         [PSCustomObject]@{Platform='AD'; Group='ADStructure'; Edge='SameForestTrust'}
         # Lateral Movement
         [PSCustomObject]@{Platform='AD'; Group='ADLateralMovement'; Edge='AdminTo'}
@@ -3304,6 +3313,7 @@ function Get-BHPathFilter{
         [PSCustomObject]@{Platform='AD'; Group='ADCredentialAccess'; Edge='ReadGMSAPassword'}
         [PSCustomObject]@{Platform='AD'; Group='ADCredentialAccess'; Edge='ReadLAPSPassword'}
         [PSCustomObject]@{Platform='AD'; Group='ADCredentialAccess'; Edge='SyncLAPSPassword'}
+        [PSCustomObject]@{Platform='AD'; Group='ADCredentialAccess'; Edge='HasTrustKeys'}
         # Obj Manipulation Basic
         [PSCustomObject]@{Platform='AD'; Group='ADObjectBasic'; Edge='AddMember'}
         [PSCustomObject]@{Platform='AD'; Group='ADObjectBasic'; Edge='AddSelf'}
@@ -3319,6 +3329,7 @@ function Get-BHPathFilter{
         # Obj Manipulation Advance
         [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='AddAllowedToAct'}
         [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='AddKeyCredentialLink'}
+        [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='CanApplyGPO'}
         [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='WriteAccountRestrictions'}
         [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='WriteSPN'}
         [PSCustomObject]@{Platform='AD'; Group='ADObjectAdvanced'; Edge='WriteGPLink'}
@@ -3357,6 +3368,8 @@ function Get-BHPathFilter{
         [PSCustomObject]@{Platform='AZ'; Group='AZStructure'; Edge='AZPrivilegedAuthAdmin'}
         [PSCustomObject]@{Platform='AZ'; Group='AZStructure'; Edge='AZPrivilegedRoleAdmin'}
         [PSCustomObject]@{Platform='AZ'; Group='AZStructure'; Edge='AZRunsAs'}
+        [PSCustomObject]@{Platform='AZ'; Group='AZStructure'; Edge='AZRoleEligible'}
+        [PSCustomObject]@{Platform='AZ'; Group='AZStructure'; Edge='AZRoleApprover'}
         # AAD Obj Manipulation
         [PSCustomObject]@{Platform='AZ'; Group='AZADObjectBasic'; Edge='AZAddMembers'}
         [PSCustomObject]@{Platform='AZ'; Group='AZADObjectBasic'; Edge='AZAddOwner'}
@@ -3907,9 +3920,9 @@ function New-BHPathQuery{
 ## BHAssetGroup [BHZone] // BHAssetGroupSelector [BHSelector]
 ##############################################################
 # Get-BHAssetGroup
-# New-BHAssetGroup                                  [BHE Only] ??
-# Set-BHAssetGroup                                  [BHE Only] ??
-# Remove-BHAssetGroup                               [BHE Only] ??
+# New-BHAssetGroup                                  [BHE Only]
+# Set-BHAssetGroup                                  [BHE Only]
+# Remove-BHAssetGroup                               [BHE Only]
 # Get-BHAssetGroupSelector
 # Test-BHAssetGroupSelector
 # New-BHAssetGroupSelector
@@ -4143,11 +4156,11 @@ function New-BHAssetGroupSelector{
 
 <#
 .SYNOPSIS
-    New BH Asset Group Selector
+    Set BH Asset Group Selector
 .DESCRIPTION
-    New BloodHound Asset Group Selector
+    Set BloodHound Asset Group Selector
 .EXAMPLE
-    New-BHSelector 1 44 -name test
+    Set-BHSelector 1 44 -name test
 #>
 function Set-BHAssetGroupSelector{
     [Alias('Set-BHSelector')]
@@ -4202,6 +4215,326 @@ function Remove-BHAssetGroupSelector{
 
 # ToDo - List kinds ??
 # BHAPI api/v2/graphs/kinds -Expand data.kinds <- Not great output (WiP?)... :(
+
+######################################################### BHOpenGraph
+
+<## Node Type
+Get-BHOpenGraphNodeType [-type <>]
+New-BHOpenGraphNodeType
+Set-BHOpenGraphNodeType -type <>
+Remove-BHOpenGraphNodeType -type <>
+
+## Convert to Ingest format
+ConvertTo-BHOpenGraphNode > Custom Node Object Format
+ConvertTo-BHOpenGraphEdge > Custom Edge Object Format
+
+New-BHOpenGraphIngestPayload -NodeList <> -EdgeList <>
+#>
+
+###############################################
+
+<#
+.SYNOPSIS
+    Get OpenGraph Node Type
+.DESCRIPTION
+    Get BloodHound OpenGraph Node Type
+.EXAMPLE
+    BHOpenGraphType [<$NodeType>] [-Config]
+#>
+function Get-BHOpenGraphNodeType{
+    [Alias('BHOpenGraphType','Get-BHOpenGraphType')]
+    Param(
+        [Parameter(Mandatory=0)][Alias('label')][String[]]$NodeType,
+        [Parameter(Mandatory=0)][Switch]$Config
+        )
+    NoMultiSession
+    $Exp = if($Config){"data.config.icon"}else{'data'}
+    if($NodeType){foreach($NType in $NodeType){BHAPI /custom-nodes/$NType -Expand $exp}}
+    else{BHAPI /custom-nodes -Expand $exp}
+    }
+#End
+
+<#
+.SYNOPSIS
+    New OpenGraph Node type
+.DESCRIPTION
+    New BloodHound OpenGraph Node type Configuration
+.EXAMPLE
+        
+#>
+function New-BHOpenGraphNodeType{
+    [Alias('New-BHOpenGraphType')]
+    Param(
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Type')][Alias('label','PrimaryKind')][String]$NodeType,
+        [Parameter(Mandatory=0,Position=1,ParameterSetName='Type')][String]$Icon='question',
+        [Parameter(Mandatory=0,Position=2,ParameterSetName='Type')][String]$Color='#FFF',
+        #[Parameter(Mandatory=0)][String]$IconType='font-awesome',
+        [Parameter(Mandatory=1,ValueFromPipeline=1,ParameterSetName='Object')][PSCUstomObject[]]$InputObject
+        )
+    Begin{
+        NoMultiSession
+        if($NodeType){[PSCustomObject]@{NodeType=$NodeType;Icon=$Icon;Color=$Color}|New-BHOpenGraphNodeType;Break}
+        $Collect=@()
+        $IconType='font-awesome'
+        }
+    Process{foreach($Obj in $InputObject){$Collect+=$Obj}}
+    End{$Ctype = $Collect|%{@{"$($_.NodeType)"=@{icon=@{type=$IconType;name=$_.Icon;color=$_.Color}}}}
+        BHAPI /custom-nodes POST (@{custom_types=$Ctype}|Convertto-Json -Depth 23) -expand data
+        }
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Set Custom Node type
+.DESCRIPTION
+    Set BloodHound OpenGraph Node Type Configuration 
+.EXAMPLE
+    Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
+#>
+function Set-BHOpenGraphNodeType{
+    [Alias('Set-BHOpenGraphType')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('label','PrimaryKind')][String]$NodeType,
+        [Parameter(Mandatory=0,Position=1)][String]$Icon,
+        [Parameter(Mandatory=0,Position=2)][String]$Color
+        #[Parameter(Mandatory=0)][String]$IconType='font-awesome'
+        )
+    NoMultiSession
+    $IconConf = @{type='font-awesome'}
+    if($Icon ){$IconConf['name'] = $Icon}
+    if($Color){$IconConf['color']= $Color}
+    $Config = @{config=@{icon=$IconConf}} | Convertto-Json -Depth 23
+    BHAPI /custom-nodes/$NodeType PUT $Config -expand data
+    }
+#End
+
+
+
+<#
+.SYNOPSIS
+    Remove OpenGraph Node type
+.DESCRIPTION
+    Remove BloodHound OpenGraph Node Type Configuration 
+.EXAMPLE
+    Remove-BHOpenGraphType <$NodeType> [-Force]
+#>
+function Remove-BHOpenGraphNodeType{
+    [Alias('Remove-BHOpenGraphType')]
+    Param(
+        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][Alias('label','PrimaryKind')][String[]]$NodeType,
+        [Parameter(Mandatory=0)][Switch]$force
+        )
+    Begin{NoMultiSession}
+    Process{Foreach($NType in $NodeType){
+        if($Force -OR (Confirm-action "[BH] Delete Custom Node type $Ntype?")){
+            BHAPI /custom-nodes/$NType DELETE
+            }}}
+    End{}###
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Convert to OpenGraph Node
+.DESCRIPTION
+    Convert Random Objects to BloodHound OpenGraph Node Format 
+.EXAMPLE
+    $ObjectList | ToBHOpenGraphNode -Label Person -ExtraLabel CustomNode -NameFrom displayName -ExcludeProps id,displayName
+.EXAMPLE
+    $ObjectList | ToBHOpenGraphNode *
+    If objects already have label,(extralabel),id,name property (ex: Import-Csv)
+    Any other props will be used as node property unless -excludeProps is used.
+#>
+Function ConvertTo-BHOpenGraphNode{
+    [Alias('ToBHOpenGraphNode')]
+    Param(
+        [Parameter(Mandatory=1,Position=1,ValueFromPipeline=1)][PSCustomObject[]]$InputObject,
+        [Parameter(Mandatory=1,Position=0)][Alias('Label','PrimaryKind')][string]$NodeType,
+        [Parameter(Mandatory=0,Position=2)][Alias('ExtraLabel')][string[]]$ExtraType,
+        [Parameter(Mandatory=0)][Alias('IDFrom')][string]$ObjectIDfrom='id',
+        [Parameter(Mandatory=0)][string]$NameFrom='Name',
+        [Parameter(Mandatory=0)][Alias('Prop')][string[]]$SelectProps='*',
+        [Parameter(Mandatory=0)][Alias('xProp')][string[]]$ExcludeProps,
+        [Parameter(Mandatory=0,ParameterSetName='RandomID')][Switch]$RandomID
+        )
+    Begin{}
+    Process{Foreach($Obj in $InputObject){
+        # NodeType
+        if($NodeType -eq '*'){
+            $NType=if($Obj.Label){$Obj.Label}
+            if($Obj.ExtraLabel){$ExtraType=$Obj.ExtraLabel}
+            }
+        # Kinds
+        [Collections.ArrayList]$kinds=@($NType)
+        if($ExtraType.count){foreach($xType in $extraType){$null=$Kinds.add("$xType")}}
+        # Name/ID
+        $oName = if($Obj.$NameFrom){"$($Obj.$NameFrom)".toUpper()}Else{Write-Warning "[BH] No Name Property Found. Please specify property to use";RETURN}
+        $oID = if($RandomID){"$([GUID]::NewGuid())".toupper()}else{
+            if($Obj.$ObjectIDFrom){"$($Obj.$ObjectIDFrom)".toUpper()}
+            Else{Write-Warning "[BH] No ID Property Found. Please specify property to use";RETURN}
+            }
+        # Props
+        $Props = $Obj | Select-Object $SelectProps -exclude $ExcludeProps
+        # Objectid/name
+        $Props | Add-Member -MemberType NoteProperty -Name 'objectid' -Value $oID -Force -ea 0
+        $Props | Add-Member -MemberType NoteProperty -Name 'name' -Value $oName -Force -ea 0
+        # OpenGraph out
+        [PSCustomObject]@{
+            id         = $oID
+            kinds      = $Kinds
+            properties = $Props | select objectid,name,* -ea 0
+            }
+        }}
+    End{}
+    }
+#End
+
+<#
+.SYNOPSIS
+    Convert to OpenGraph Edge
+.DESCRIPTION
+    Convert Random Objects to BloodHound OpenGraph Edge Format.
+    (Use -AllowOrphans when Importing edges without already existing nodes in BHE)
+.EXAMPLE
+    $RelList | ToBHOpenGraphEdge -Edge CanAbuse -Start <sourceidproperty> -End <targetidproperty>
+.EXAMPLE
+    $RelList | ToBHOpenGraphEdge  -Edge CanAbuse -TargetByName  -SourceByName -Start <sourcenameproperty> -End <targetnameproperty>
+    Will match on name instead of objectid when importing
+.EXAMPLE
+    $RelList | ToBHOpenGraphEdge -Edge *
+    If $RelList objects have source,edge,target property (ex: Import-Csv)
+    Any other props will be used as node property unless -excludeProps is used. 
+    #>
+Function ConvertTo-BHOpenGraphEdge{
+    [Alias('ToBHOpenGraphEdge')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('kind')][string]$EdgeType,
+        [Parameter(Mandatory=0,Position=1)][Alias('Source')][String]$Start='source',
+        [Parameter(Mandatory=0,Position=2)][Alias('Target')][String]$End='target',
+        [Parameter(Mandatory=0,Position=3)][Alias('Prop')][String[]]$SelectProps='*',
+        [Parameter(Mandatory=0)][Alias('xProp')][String[]]$ExcludeProps,
+        [Parameter(Mandatory=0)][switch]$SourceByName,
+        [Parameter(Mandatory=0)][string]$SourceKind,
+        [Parameter(Mandatory=0)][switch]$TargetByName,
+        [Parameter(Mandatory=0)][string]$TargetKind,
+        [Parameter(Mandatory=0)][Switch]$AllowOrphans,
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][PSCustomObject[]]$InputObject
+        )
+    Begin{}
+    Process{Foreach($Obj in $InputObject){
+        $srcNode = [PSCustomObject]@{
+            value = $(Try{"$($Obj.$Start)".toupper()}Catch{Write-Warning "[BH] Missing Edge Source Value";break})
+            match_by = if($SourceByName){'name'}else{'id'}
+            }
+        if($SourceKind){$srcNode|Add-Member -MemberType NoteProperty -Name 'kind' -Value $SourceKind} 
+        if($AllowOrphans){$srcNode|Add-Member -MemberType NoteProperty -Name 'allow_orphan' -Value $true} 
+        $tgtNode = [PSCustomObject]@{
+            value = $(Try{"$($Obj.$End)".toupper()}Catch{Write-Warning "[BH] Missing Edge Target Value";break})
+            match_by = if($TargetByName){'name'}else{'id'}
+            }
+        if($TargetKind){$srcNode|Add-Member -MemberType NoteProperty -Name 'kind' -Value $SourceKind}
+        if($AllowOrphans){$tgtNode|Add-Member -MemberType NoteProperty -Name 'allow_orphan' -Value $true}
+        $EType = if($EdgeType -eq '*'){if($Obj.edge){$Obj.edge}elseif($Obj.Kind){$Obj.Kind}else{$Obj.Type}}else{$EdgeType}
+        $EType = $EType.Substring(0,1).toUpper() + $EType.Substring(1)
+        [PSCustomObject]@{
+            kind = $EType
+            start = $srcNode
+            end = $tgtNode
+            properties = $Obj | Select-Object $SelectProps -ExcludeProperty $ExcludeProps
+            }
+        }}
+    End{}
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    New OpenGraph Ingest Payload
+.DESCRIPTION
+    Create BloodHound OpenGraph Ingest Payload with OpenGraph Nodes and/or Edges
+    Use ConvertTo-BHOpenGraphNode to format node list
+    Use ConvertTo-BHOpenGraphEdge to format Edge list
+.EXAMPLE
+    BHOpenGraphPayload -NodeList $BHOpenGraphNodeList -EdgeList $BHOpenGraphEdgeList
+.EXAMPLE
+    # Bulk Import from csv files #
+    
+    $Graph = @{
+        Nodelist = Import-Csv BHOpenGraphCSV\Person.csv | ToBHOpenGraphNode *
+        EdgeList = Import-Csv BHOpenGraphCSV\EdgeByID.csv | ToBHOpenGraphEdge *
+        }
+    
+    BHOpenGraphPayload @Graph | BHDataUploadJSON
+    
+    # Node CSV: id,label,[extralabel],name
+    # + any other (treated as node properties)
+    # Edge CSV: source,edge,target
+    # + any other (treated as edge properties)
+    # Edge source and target values should be node IDs
+    # (use -SourceFromName and/or -TargetFromName to use name values instead)
+#>
+Function New-BHOpenGraphIngestPayload{
+    [CmdletBinding(DefaultParameterSetName='Arrows')]
+    [Alias('BHOpenGraphPayload')]
+    Param(
+        [Parameter(ParameterSetName='List')][PSCustomObject[]]$NodeList,
+        [Parameter(ParameterSetName='List')][PSCustomObject[]]$EdgeList,
+        [Parameter()][Switch]$NoJSON,
+        [Parameter()][Switch]$Compress,
+        [Parameter()][string]$CollectorName='CustomCollector',
+        [Parameter()][string]$CollectorVersion='beta',
+        [Parameter()][String[]]$CollectionMethod='Custom',
+        [Parameter(Mandatory=1,ParameterSetName='Arrows',ValueFromPipeline)][String]$FromArrows
+        )
+    Begin{}
+    Process{if($PSCmdlet.ParameterSetName -eq 'List'){
+        $Graph = [PSCustomObject]@{}
+        if(-not $fromArrows -AND -not($NodeList -AND $EdgeList)){Write-Warning "Please specify OpenGraph nodes and/or edges for payload";RETURN}
+        if($NodeList){$Graph|Add-Member -MemberType NoteProperty -Name nodes -Value @($NodeList)}
+        if($EdgeList){$Graph|Add-Member -MemberType NoteProperty -Name edges -Value @($EdgeList)}
+        $Meta = [PSCustomObject]@{
+            ingest_version='v1'
+            collector=@{
+                name    = $CollectorName
+                version = $CollectorVersion
+                properties = @{collection_methods=@($CollectionMethod)}
+                }
+            }
+        $Out=[PSCUstomObject]@{graph=$Graph;metadata=$Meta}
+        if($NoJSON){$Out}else{$out|Convertto-Json -Depth 23 -Compress:$Compress}
+        }}
+    End{if($fromArrows){
+        $arrows = $FromArrows | ConvertFrom-Json -Depth 23
+        $arrows = $arrows | Select-Object -ExcludeProperty Style
+        #$NodeL = $arrows.nodes | select id,@{n='label';e={$_.labels[0]}},@{n='name';e={if($_.caption){$_.Caption}else{$_.id}}},properties
+        $NodeL = foreach($Nd in $arrows.nodes){
+            #$Nd | select id,@{n='label';e={$_.labels|select -first 1}},@{n='name';e={if($_.caption){$_.Caption}else{$_.id}}},properties
+            $Nd | select id,@{n='Label';e={$_.labels|select -first 1}},@{n='ExtraLabel';e={$_.labels|select -Skip 1}},@{n='name';e={if($_.caption){$_.Caption}else{$_.id}}},properties
+            }
+        $NodeL = Foreach($nd in $NodeL){
+            Foreach($np in ($nd.properties|GM -ea 0|? Membertype -eq Noteproperty).name){$nd|Add-Member -MemberType NoteProperty -Name $np -Value $nd.properties.$np -force}
+            $nd
+            }
+        $NodeL = $NodeL | ToBHOpenGraphNode * -ExcludeProps id,label,extraLabel,properties
+        $EdgeL = $arrows.relationships | select @{n='source';e={$_.fromId}},@{n='Edge';e={if($_.type){$_.type}else{'IsConnectedTo'}}},@{n='Target';e={$_.toId}}
+        $EdgeL = Foreach($ed in $EdgeL){
+            Foreach($ep in $($ed.properties|%{$_|GM -ea 0|? Membertype -eq Noteproperty}).name){$ed|Add-Member -MemberType NoteProperty -Name $ep -Value $ed.properties.$ep -force}
+            $ed
+            }
+        $EdgeL = $EdgeL | ToBHOpenGraphEdge * -exclude source,edge,target,properties # Props /!\
+        $Meta = @{
+            CollectorName    = $CollectorName
+            CollectorVersion = $CollectorVersion
+            CollectionMethod = $CollectionMethod
+            }
+        New-BHOpenGraphIngestPayload -NodeList $NodeL -EdgeList $edgeL -NoJSON:$NoJson -Compress:$Compress @Meta
+        }}
+    }
+#End
 
 ### BloodHoundOperator - BHUtils
 # Read-SecureString
@@ -4746,7 +5079,7 @@ function Get-BHPathFinding{
         if($PSCmdlet.ParameterSetName -eq 'ListAll'){BHAPI api/v2/attack-path-types -expand data}
         }
     Process{Foreach($DomID in $DomainID){
-        if($PSCmdlet.ParameterSetName -ne 'trend'){$FindType = if(-Not$FindingType){BHAPI api/v2/domains/$DomID/available-types -expand data}else{$FindingType}}
+        if($PSCmdlet.ParameterSetName -ne 'trend'){$FindType = if(-Not$FindingType.count){BHAPI api/v2/domains/$DomID/available-types -expand data}else{$FindingType}}
         Switch($PSCmdlet.ParameterSetName){
                 Avail {$FindType}
                 Detail{[Array]$qFilter=@()
