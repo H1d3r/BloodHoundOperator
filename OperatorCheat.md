@@ -67,6 +67,7 @@
     - [Add-BHNodeToNodeGroup](#add-bhnodetonodegroup)
 - [BHPath](#bhpath)
     - [Get-BHPath](#get-bhpath)
+    - [Get-BHPathACLInheritance](#get-bhpathaclinheritance)
     - [Get-BHPathComposition](#get-bhpathcomposition)
     - [Get-BHPathFilter](#get-bhpathfilter)
     - [Select-BHPathFilter](#select-bhpathfilter)
@@ -80,6 +81,7 @@
     - [Remove-BHPathQuery](#remove-bhpathquery)
     - [Set-BHPathQuery](#set-bhpathquery)
     - [Set-BHPathQueryScope](#set-bhpathqueryscope)
+    - [Get-BHPathRelayTarget](#get-bhpathrelaytarget)
 - [BHAssetGroup](#bhassetgroup)
     - [Get-BHAssetGroup](#get-bhassetgroup)
     - [New-BHAssetGroup](#new-bhassetgroup)
@@ -98,10 +100,6 @@
     - [New-BHOpenGraphNodeType](#new-bhopengraphnodetype)
     - [Remove-BHOpenGraphNodeType](#remove-bhopengraphnodetype)
     - [Set-BHOpenGraphNodeType](#set-bhopengraphnodetype)
-    - [Get-BHOpenGraphType](#get-bhopengraphtype)
-    - [New-BHOpenGraphType](#new-bhopengraphtype)
-    - [Remove-BHOpenGraphType](#remove-bhopengraphtype)
-    - [Set-BHOpenGraphType](#set-bhopengraphtype)
 - [BHClient](#bhclient)
     - [Get-BHClient](#get-bhclient)
     - [New-BHClient](#new-bhclient)
@@ -1625,20 +1623,20 @@ See `Help BHDataAnalysis` for more info
 
 ### **Clear-BHDatabase**
 
-Clear BloodHound Database
+
+Clear-BHDatabase [[-GraphData] <string[]>] [[-CustomSelector] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-Really] [<CommonParameters>]
+
 
 #### **Syntax:**
 
 ```PowerShell
-Clear-BHDatabase [-GraphData] [-IngestHistory] [-DataHistory] [-Force] [-Really]
+Clear-BHDatabase [[-GraphData] <string[]>] [[-CustomSelector] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-Really]
 ```
 
 #### **Examples:**
 
 ```PowerShell
--------------------------- EXAMPLE 1 --------------------------
-
-PS > Clear-BHDatabase -GraphData -Force -Really
+-------------------------- EXAMPLE 1
 
 ```
 
@@ -2333,6 +2331,41 @@ See `Help BHCypher` for more info
 
 ---
 
+### **Get-BHPathACLInheritance**
+
+**Alias**: `BHACLInheritance`
+
+Get BloodHound ACL Inheritance
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHPathACLInheritance [-SourceID] <string> [-TargetID] <string> [-EdgeType] <string>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Get-BHPathACLInheritance -SourceID $x -EdgeType $r -TargetID $y
+
+```
+
+See `Help BHACLInheritance` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
 ### **Get-BHPathComposition**
 
 **Alias**: `BHComposition`
@@ -2497,11 +2530,11 @@ See `Help Approve-BHFinding` for more info
 #### **Syntax:**
 
 ```PowerShell
-Get-BHPathFinding [-TypeList] 
+Get-BHPathFinding [[-DomainID] <string[]>] [-Detail] [-FindingType <BHFindingType[]>] [-Limit <int>] 
+
+Get-BHPathFinding -TypeList 
 
 Get-BHPathFinding [-DomainID] <string[]> -ListAvail 
-
-Get-BHPathFinding [-DomainID] <string[]> -Detail [-FindingType <BHFindingType[]>] [-Limit <int>] 
 
 Get-BHPathFinding [-DomainID] <string[]> -Sparkline [-FindingType <BHFindingType[]>] [-StartDate <datetime>] [-EndDate <datetime>] [-Limit <int>] 
 
@@ -2888,6 +2921,41 @@ See `Help Set-BHQueryScope` for more info
 
 ---
 
+### **Get-BHPathRelayTarget**
+
+**Alias**: `BHRelayTarget`
+
+Get BloodHound Relay Target
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHPathRelayTarget [-SourceID] <string> [-TargetID] <string> [-EdgeType] <string>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Get-BHPathRelayTarget -SourceID $x -EdgeType $r -TargetID $y
+
+```
+
+See `Help BHRelayTarget` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
 </br>
 
 ## **BHASSETGROUP**
@@ -3223,7 +3291,7 @@ See `Help Test-BHSelector` for more info
 
 ### **ConvertTo-BHOpenGraphEdge**
 
-**Alias**: `ToBHOpenGraphEdge`
+**Alias**: `ToBHOGEdge`
 
 Convert to OpenGraph Edge
 
@@ -3255,7 +3323,7 @@ Any other props will be used as node property unless -excludeProps is used.
 
 ```
 
-See `Help ToBHOpenGraphEdge` for more info
+See `Help ToBHOGEdge` for more info
 
 </br>
 
@@ -3271,7 +3339,7 @@ See `Help ToBHOpenGraphEdge` for more info
 
 ### **New-BHOpenGraphIngestPayload**
 
-**Alias**: `BHOpenGraphPayload`
+**Alias**: `BHOGPayload`
 
 New OpenGraph Ingest Payload
 
@@ -3311,7 +3379,7 @@ BHOpenGraphPayload @Graph | BHDataUploadJSON
 
 ```
 
-See `Help BHOpenGraphPayload` for more info
+See `Help BHOGPayload` for more info
 
 </br>
 
@@ -3327,7 +3395,7 @@ See `Help BHOpenGraphPayload` for more info
 
 ### **ConvertTo-BHOpenGraphNode**
 
-**Alias**: `ToBHOpenGraphNode`
+**Alias**: `ToBHOGNode`
 
 Convert to OpenGraph Node
 
@@ -3353,7 +3421,7 @@ Any other props will be used as node property unless -excludeProps is used.
 
 ```
 
-See `Help ToBHOpenGraphNode` for more info
+See `Help ToBHOGNode` for more info
 
 </br>
 
@@ -3369,7 +3437,7 @@ See `Help ToBHOpenGraphNode` for more info
 
 ### **Get-BHOpenGraphNodeType**
 
-**Alias**: `BHOpenGraphType`
+**Alias**: `BHOGType`
 
 Get OpenGraph Node Type
 
@@ -3388,7 +3456,7 @@ BHOpenGraphType [<$NodeType>] [-Config]
 
 ```
 
-See `Help BHOpenGraphType` for more info
+See `Help BHOGType` for more info
 
 </br>
 
@@ -3404,7 +3472,7 @@ See `Help BHOpenGraphType` for more info
 
 ### **New-BHOpenGraphNodeType**
 
-**Alias**: `New-BHOpenGraphType`
+**Alias**: `New-BHOGType`
 
 New OpenGraph Node type
 
@@ -3425,7 +3493,7 @@ PS >
 
 ```
 
-See `Help New-BHOpenGraphType` for more info
+See `Help New-BHOGType` for more info
 
 </br>
 
@@ -3441,7 +3509,7 @@ See `Help New-BHOpenGraphType` for more info
 
 ### **Remove-BHOpenGraphNodeType**
 
-**Alias**: `Remove-BHOpenGraphType`
+**Alias**: `Remove-BHOGType`
 
 Remove OpenGraph Node type
 
@@ -3460,7 +3528,7 @@ Remove-BHOpenGraphType <$NodeType>[-Force]
 
 ```
 
-See `Help Remove-BHOpenGraphType` for more info
+See `Help Remove-BHOGType` for more info
 
 </br>
 
@@ -3476,14 +3544,14 @@ See `Help Remove-BHOpenGraphType` for more info
 
 ### **Set-BHOpenGraphNodeType**
 
-**Alias**: `Set-BHOpenGraphType`
+**Alias**: `Set-BHOGType`
 
 Set Custom Node type
 
 #### **Syntax:**
 
 ```PowerShell
-Set-BHOpenGraphNodeType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>]
+Set-BHOpenGraphNodeType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>] [-Json]
 ```
 
 #### **Examples:**
@@ -3495,149 +3563,7 @@ PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
 
 ```
 
-See `Help Set-BHOpenGraphType` for more info
-
-</br>
-
-</br>
-
-
-[BackToTop](#table-of-content)
-
-
-</br>
-
----
-
-### **Get-BHOpenGraphType**
-
-Get OpenGraph Node Type
-
-#### **Syntax:**
-
-```PowerShell
-Get-BHOpenGraphType (alias) -> Get-BHOpenGraphNodeType
-
-Get-BHOpenGraphType [[-NodeType] <string[]>] [-Config]
-```
-
-#### **Examples:**
-
-```PowerShell
--------------------------- EXAMPLE 1 --------------------------
-
-BHOpenGraphType [<$NodeType>] [-Config]
-
-```
-
-See `Help Get-BHOpenGraphType` for more info
-
-</br>
-
-</br>
-
-
-[BackToTop](#table-of-content)
-
-
-</br>
-
----
-
-### **New-BHOpenGraphType**
-
-New OpenGraph Node type
-
-#### **Syntax:**
-
-```PowerShell
-New-BHOpenGraphType (alias) -> New-BHOpenGraphNodeType
-
-New-BHOpenGraphType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>] 
-
-New-BHOpenGraphType -InputObject <psobject[]>
-```
-
-#### **Examples:**
-
-```PowerShell
--------------------------- EXAMPLE 1 --------------------------
-
-PS >
-
-```
-
-See `Help New-BHOpenGraphType` for more info
-
-</br>
-
-</br>
-
-
-[BackToTop](#table-of-content)
-
-
-</br>
-
----
-
-### **Remove-BHOpenGraphType**
-
-Remove OpenGraph Node type
-
-#### **Syntax:**
-
-```PowerShell
-Remove-BHOpenGraphType (alias) -> Remove-BHOpenGraphNodeType
-
-Remove-BHOpenGraphType [-NodeType] <string[]> [-force]
-```
-
-#### **Examples:**
-
-```PowerShell
--------------------------- EXAMPLE 1 --------------------------
-
-Remove-BHOpenGraphType <$NodeType>[-Force]
-
-```
-
-See `Help Remove-BHOpenGraphType` for more info
-
-</br>
-
-</br>
-
-
-[BackToTop](#table-of-content)
-
-
-</br>
-
----
-
-### **Set-BHOpenGraphType**
-
-Set Custom Node type
-
-#### **Syntax:**
-
-```PowerShell
-Set-BHOpenGraphType (alias) -> Set-BHOpenGraphNodeType
-
-Set-BHOpenGraphType [-NodeType] <string> [[-Icon] <string>] [[-Color] <string>]
-```
-
-#### **Examples:**
-
-```PowerShell
--------------------------- EXAMPLE 1 --------------------------
-
-PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
-
-```
-
-See `Help Set-BHOpenGraphType` for more info
+See `Help Set-BHOGType` for more info
 
 </br>
 
@@ -4091,6 +4017,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Tuesday, July 29, 2025 11:28:48 PM
+Friday, August 15, 2025 4:05:22 PM
 
 

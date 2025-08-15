@@ -1,7 +1,5 @@
 ## BloodHoundOperator
-# Tuesday, July 29, 2025 9:12:33 PM
-
-######################################################################
+# Friday, August 15, 2025 2:05:48 PM
 
 ## BloodHound Operator - BHComposer (BHCE Only)
 # New-BHComposer
@@ -1648,6 +1646,7 @@ function Get-BHOperatorHelp{
             Get-Command *-BHRRule*      | sort-object Noun,Verb
             Get-Command *-BHDate*       | sort-object Noun,Verb
             Get-Command *-BHAssetGroup* | sort-object Noun,Verb
+            Get-Command *-BHOpenGraph*  | sort-object Noun,Verb
             )
         $Out = Foreach($Cmdlet in $CmdletList){
             $Als = Get-Alias -Definition $Cmdlet.name -ea 0 | Select -first 1
@@ -2012,6 +2011,49 @@ function Clear-BHDatabase{
         if($Really -OR $(Confirm-Action "This is irreversible... Are you really sure")){
             ## Comment line below to remove BHE safety - Don't blame me if you wipe your instance ##
             if($(BHSession|? x).edition -eq 'BHE'){RETURN 'Computer Says No... ¯\_(ツ)_/¯'}
+            # Clear DB
+            BHAPI api/v2/clear-database POST $($ClearItem|Convertto-Json)
+            }
+        }
+    }
+#End
+
+
+function Clear-BHDatabase{
+    Param(
+        [ValidateSet('AD','AZ','OG')]
+        [Parameter()][String[]]$GraphData,
+        [ValidateSet('HighValue','AssetGroup')]
+        [Parameter()][String[]]$CustomSelector,
+        [Parameter()][Switch]$IngestHistory,
+        [Parameter()][Switch]$DataHistory,
+        [Parameter()][Switch]$Force,
+        [Parameter()][Switch]$Really
+        )
+    NoMultiSession
+    $ClearItem = @{}
+    if($GraphData){
+        $GD = [Array]@()
+        If('AD' -in $GraphData){$GD+=1}
+        If('AZ' -in $GraphData){$GD+=2}
+        If('OG' -in $GraphData){$GD+=0}
+        $ClearItem['deleteSourceKinds']=$GD
+        $ClearItem['deleteCollectedGraphData']=$False
+        }
+    if($CustomSelector){
+        $CS = [Array]@()
+        if('HighValue' -in $CustomSelector){$CS+=1}
+        if('AssetGroup' -in $CustomSelector){$CS+=2}
+        $ClearItem['deleteAssetGroupSelectors']=$CS
+        }
+    if($IngestHistory){$ClearItem['deleteFileIngestHistory']=$true}
+    if($DataHistory){$ClearItem['deleteDataQualityHistory']=$true}
+    if($ClearItem -AND $($Force -OR $(Confirm-Action "Can't undo later... Are you sure"))){
+        if($Really -OR $(Confirm-Action "This is irreversible... Are you really sure")){
+            ## Comment line below to remove BHE safety - Don't blame me if you wipe your instance ##
+            if($(BHSession|? x).edition -eq 'BHE'){RETURN 'Computer Says No... ¯\_(ツ)_/¯'}
+            #DEBUG
+            #$($ClearItem|Convertto-Json)
             # Clear DB
             BHAPI api/v2/clear-database POST $($ClearItem|Convertto-Json)
             }
@@ -3647,6 +3689,122 @@ function Get-BHPathComposition{
     }
 #End
 
+
+
+<#
+.SYNOPSIS
+    Get BloodHound Relay Target
+.DESCRIPTION
+    Get BloodHound Relay Target
+.EXAMPLE
+    Get-BHPathRelayTarget -SourceID $x -EdgeType $r -TargetID $y
+#>
+function Get-BHPathRelayTarget{
+    [Alias('BHRelayTarget')]
+    Param(
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][string]$SourceID,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][string]$TargetID,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][Alias('Edge')][String]$EdgeType
+        )
+    Begin{$idx=0;$stp=0}
+    Process{
+        if($Sourceid -notmatch "^\d+$"){$Sourceid = try{((BHCypher "MATCH (x{objectid:'$SourceID'}) RETURN x" -NoConvert -verbose:$False).data.nodes|gm|? Membertype -eq Noteproperty).name}Catch{}}
+        if($Targetid -notmatch "^\d+$"){$Targetid = try{((BHCypher "MATCH (x{objectid:'$TargetID'}) RETURN x" -NoConvert -verbose:$False).data.nodes|gm|? Membertype -eq Noteproperty).name}catch{}}
+        if(-Not$SourceID -OR -Not$TargetID){Break}
+        $qfilter = @(
+            "source_node=$SourceID",
+            "target_node=$TargetID",
+            "edge_type=$EdgeType"
+            )
+        #$RelayEdges = 'CoerceAndRelayNTLMToSMB','CoerceAndRelayNTLMToLDAP','CoerceAndRelayNTLMToLDAPS','CoerceAndRelayNTLMToADCS'
+        $CallURL=if($EdgeType -IN $RelayEdges){'api/v2/graphs/relay-targets'}else{'api/v2/graphs/relay-targets'}
+        $CompData = BHAPI $CallURL -Filter $qFilter -dot data
+        for($i=0;$i -lt $CompData.edges.count;$i++){
+            $CurrentEdge = $CompData.edges[$i]
+            $SrcNode     = $CompData.Nodes.$($CurrentEdge.source)
+            $TgtNode     = $CompData.Nodes.$($CurrentEdge.target)
+            $CurrentEdge | Add-Member -MemberType NoteProperty -Name source_node -Value $SrcNode -Force
+            $CurrentEdge | Add-Member -MemberType NoteProperty -Name target_node -Value $TgtNode -Force
+            [PSCustomObject]@{
+                ID         = $idx
+                Step       = $stp
+                SourceType = $CurrentEdge.source_node.kind
+                Source     = $CurrentEdge.source_node.label
+                Edge       = $CurrentEdge.Kind
+                TargetType = $CurrentEdge.target_node.kind
+                Target     = $CurrentEdge.target_node.label
+                IsTierZeroSource = $CurrentEdge.source_node.isTierZero
+                IsTierZeroTarget = $CurrentEdge.target_node.isTierZero
+                TierZeroViolation = $CurrentEdge.target_node.IsTierZero -AND -Not$CurrentEdge.source_node.IsTierZero
+                SourceId  = $CurrentEdge.source_node.objectid
+                TargetId  = $CurrentEdge.target_node.objectid
+                EdgeProps = $CurrentEdge.Properties
+                }
+            if($CurrentEdge.Target -eq $CompData.edges[$i+1].source){$stp+=1}else{$idx+=1;$Stp=0}
+            }
+        }
+    End{}
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Get BloodHound ACL Inheritance
+.DESCRIPTION
+    Get BloodHound ACL Inheritance
+.EXAMPLE
+    Get-BHPathACLInheritance -SourceID $x -EdgeType $r -TargetID $y
+#>
+function Get-BHPathACLInheritance{
+    [Alias('BHACLInheritance')]
+    Param(
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][string]$SourceID,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][string]$TargetID,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)][Alias('Edge')][String]$EdgeType
+        )
+    Begin{$idx=0;$stp=0}
+    Process{
+        if($Sourceid -notmatch "^\d+$"){$Sourceid = try{((BHCypher "MATCH (x{objectid:'$SourceID'}) RETURN x" -NoConvert -verbose:$False).data.nodes|gm|? Membertype -eq Noteproperty).name}Catch{}}
+        if($Targetid -notmatch "^\d+$"){$Targetid = try{((BHCypher "MATCH (x{objectid:'$TargetID'}) RETURN x" -NoConvert -verbose:$False).data.nodes|gm|? Membertype -eq Noteproperty).name}catch{}}
+        if(-Not$SourceID -OR -Not$TargetID){Break}
+        $qfilter = @(
+            "source_node=$SourceID",
+            "target_node=$TargetID",
+            "edge_type=$EdgeType"
+            )
+        #$RelayEdges = 'CoerceAndRelayNTLMToSMB','CoerceAndRelayNTLMToLDAP','CoerceAndRelayNTLMToLDAPS','CoerceAndRelayNTLMToADCS'
+        $CallURL=if($EdgeType -IN $RelayEdges){'api/v2/graphs/relay-targets'}else{'api/v2/graphs/acl-inheritance'}
+        $CompData = BHAPI $CallURL -Filter $qFilter -dot data
+        RETURN $CompData
+        for($i=0;$i -lt $CompData.edges.count;$i++){
+            $CurrentEdge = $CompData.edges[$i]
+            $SrcNode     = $CompData.Nodes.$($CurrentEdge.source)
+            $TgtNode     = $CompData.Nodes.$($CurrentEdge.target)
+            $CurrentEdge | Add-Member -MemberType NoteProperty -Name source_node -Value $SrcNode -Force
+            $CurrentEdge | Add-Member -MemberType NoteProperty -Name target_node -Value $TgtNode -Force
+            [PSCustomObject]@{
+                ID         = $idx
+                Step       = $stp
+                SourceType = $CurrentEdge.source_node.kind
+                Source     = $CurrentEdge.source_node.label
+                Edge       = $CurrentEdge.Kind
+                TargetType = $CurrentEdge.target_node.kind
+                Target     = $CurrentEdge.target_node.label
+                IsTierZeroSource = $CurrentEdge.source_node.isTierZero
+                IsTierZeroTarget = $CurrentEdge.target_node.isTierZero
+                TierZeroViolation = $CurrentEdge.target_node.IsTierZero -AND -Not$CurrentEdge.source_node.IsTierZero
+                SourceId  = $CurrentEdge.source_node.objectid
+                TargetId  = $CurrentEdge.target_node.objectid
+                EdgeProps = $CurrentEdge.Properties
+                }
+            if($CurrentEdge.Target -eq $CompData.edges[$i+1].source){$stp+=1}else{$idx+=1;$Stp=0}
+            }
+        }
+    End{}
+    }
+#End
+
 ############################################################# Saved Queries
 
 <#
@@ -4087,9 +4245,7 @@ function Get-BHAssetGroupSelector{
         )
     if(-Not$SelectorID){BHAPI /asset-group-tags/$GroupID/selectors -Expand data.selectors}
     else{if($Count){
-            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members 
-            | Group-Object primary_kind -NoElement
-            | Select @{n='primary_kind';e={$_.Name}},count
+            BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members | Group-Object primary_kind -NoElement | Select @{n='primary_kind';e={$_.Name}},count
             }
         elseif($Member){BHAPI /asset-group-tags/$GroupID/selectors/$selectorID/members -Expand data.members}
         else{$Exp = if($Seeds){'data.selector.seeds'}else{'data.selector'}
@@ -4219,10 +4375,10 @@ function Remove-BHAssetGroupSelector{
 ######################################################### BHOpenGraph
 
 <## Node Type
-Get-BHOpenGraphNodeType [-type <>]
+Get-BHOpenGraphNodeType [-Nodetype <>]
 New-BHOpenGraphNodeType
-Set-BHOpenGraphNodeType -type <>
-Remove-BHOpenGraphNodeType -type <>
+Set-BHOpenGraphNodeType -Nodetype <>
+Remove-BHOpenGraphNodeType -Nodetype <>
 
 ## Convert to Ingest format
 ConvertTo-BHOpenGraphNode > Custom Node Object Format
@@ -4242,9 +4398,9 @@ New-BHOpenGraphIngestPayload -NodeList <> -EdgeList <>
     BHOpenGraphType [<$NodeType>] [-Config]
 #>
 function Get-BHOpenGraphNodeType{
-    [Alias('BHOpenGraphType','Get-BHOpenGraphType')]
+    [Alias('BHOGType','Get-BHOGType')]
     Param(
-        [Parameter(Mandatory=0)][Alias('label')][String[]]$NodeType,
+        [Parameter(Mandatory=0)][Alias('Label','PrimaryKind')][String[]]$NodeType,
         [Parameter(Mandatory=0)][Switch]$Config
         )
     NoMultiSession
@@ -4263,9 +4419,9 @@ function Get-BHOpenGraphNodeType{
         
 #>
 function New-BHOpenGraphNodeType{
-    [Alias('New-BHOpenGraphType')]
+    [Alias('New-BHOGType')]
     Param(
-        [Parameter(Mandatory=1,Position=0,ParameterSetName='Type')][Alias('label','PrimaryKind')][String]$NodeType,
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Type')][Alias('Label','PrimaryKind')][String]$NodeType,
         [Parameter(Mandatory=0,Position=1,ParameterSetName='Type')][String]$Icon='question',
         [Parameter(Mandatory=0,Position=2,ParameterSetName='Type')][String]$Color='#FFF',
         #[Parameter(Mandatory=0)][String]$IconType='font-awesome',
@@ -4273,6 +4429,7 @@ function New-BHOpenGraphNodeType{
         )
     Begin{
         NoMultiSession
+        if($Color){if($Color -notmatch "^\#"){$Color="#$Color"}}
         if($NodeType){[PSCustomObject]@{NodeType=$NodeType;Icon=$Icon;Color=$Color}|New-BHOpenGraphNodeType;Break}
         $Collect=@()
         $IconType='font-awesome'
@@ -4294,19 +4451,24 @@ function New-BHOpenGraphNodeType{
     Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
 #>
 function Set-BHOpenGraphNodeType{
-    [Alias('Set-BHOpenGraphType')]
+    [Alias('Set-BHOGType')]
     Param(
-        [Parameter(Mandatory=1,Position=0)][Alias('label','PrimaryKind')][String]$NodeType,
+        [Parameter(Mandatory=1,Position=0)][Alias('Label','PrimaryKind')][String]$NodeType,
         [Parameter(Mandatory=0,Position=1)][String]$Icon,
-        [Parameter(Mandatory=0,Position=2)][String]$Color
+        [Parameter(Mandatory=0,Position=2)][String]$Color,
         #[Parameter(Mandatory=0)][String]$IconType='font-awesome'
+        [Parameter(Mandatory=0)][Switch]$Json
         )
     NoMultiSession
     $IconConf = @{type='font-awesome'}
     if($Icon ){$IconConf['name'] = $Icon}
-    if($Color){$IconConf['color']= $Color}
+    if($Color){
+        if($Color -notmatch "^\#"){$Color="#$Color"}
+        $IconConf['color']= $Color
+        }
     $Config = @{config=@{icon=$IconConf}} | Convertto-Json -Depth 23
-    BHAPI /custom-nodes/$NodeType PUT $Config -expand data
+    if($Json){$Config}
+    else{BHAPI /custom-nodes/$NodeType PUT $Config -expand data}
     }
 #End
 
@@ -4321,9 +4483,9 @@ function Set-BHOpenGraphNodeType{
     Remove-BHOpenGraphType <$NodeType> [-Force]
 #>
 function Remove-BHOpenGraphNodeType{
-    [Alias('Remove-BHOpenGraphType')]
+    [Alias('Remove-BHOGType')]
     Param(
-        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][Alias('label','PrimaryKind')][String[]]$NodeType,
+        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][Alias('Label','PrimaryKind')][String[]]$NodeType,
         [Parameter(Mandatory=0)][Switch]$force
         )
     Begin{NoMultiSession}
@@ -4349,7 +4511,7 @@ function Remove-BHOpenGraphNodeType{
     Any other props will be used as node property unless -excludeProps is used.
 #>
 Function ConvertTo-BHOpenGraphNode{
-    [Alias('ToBHOpenGraphNode')]
+    [Alias('ToBHOGNode')]
     Param(
         [Parameter(Mandatory=1,Position=1,ValueFromPipeline=1)][PSCustomObject[]]$InputObject,
         [Parameter(Mandatory=1,Position=0)][Alias('Label','PrimaryKind')][string]$NodeType,
@@ -4367,6 +4529,7 @@ Function ConvertTo-BHOpenGraphNode{
             $NType=if($Obj.Label){$Obj.Label}
             if($Obj.ExtraLabel){$ExtraType=$Obj.ExtraLabel}
             }
+        else{$Ntype=$NodeType}
         # Kinds
         [Collections.ArrayList]$kinds=@($NType)
         if($ExtraType.count){foreach($xType in $extraType){$null=$Kinds.add("$xType")}}
@@ -4409,7 +4572,7 @@ Function ConvertTo-BHOpenGraphNode{
     Any other props will be used as node property unless -excludeProps is used. 
     #>
 Function ConvertTo-BHOpenGraphEdge{
-    [Alias('ToBHOpenGraphEdge')]
+    [Alias('ToBHOGEdge')]
     Param(
         [Parameter(Mandatory=1,Position=0)][Alias('kind')][string]$EdgeType,
         [Parameter(Mandatory=0,Position=1)][Alias('Source')][String]$Start='source',
@@ -4479,7 +4642,7 @@ Function ConvertTo-BHOpenGraphEdge{
 #>
 Function New-BHOpenGraphIngestPayload{
     [CmdletBinding(DefaultParameterSetName='Arrows')]
-    [Alias('BHOpenGraphPayload')]
+    [Alias('BHOGPayload','New-BHOGPayload')]
     Param(
         [Parameter(ParameterSetName='List')][PSCustomObject[]]$NodeList,
         [Parameter(ParameterSetName='List')][PSCustomObject[]]$EdgeList,
@@ -4519,13 +4682,13 @@ Function New-BHOpenGraphIngestPayload{
             Foreach($np in ($nd.properties|GM -ea 0|? Membertype -eq Noteproperty).name){$nd|Add-Member -MemberType NoteProperty -Name $np -Value $nd.properties.$np -force}
             $nd
             }
-        $NodeL = $NodeL | ToBHOpenGraphNode * -ExcludeProps id,label,extraLabel,properties
+        $NodeL = $NodeL | ToBHOGNode * -ExcludeProps id,label,extraLabel,properties
         $EdgeL = $arrows.relationships | select @{n='source';e={$_.fromId}},@{n='Edge';e={if($_.type){$_.type}else{'IsConnectedTo'}}},@{n='Target';e={$_.toId}}
         $EdgeL = Foreach($ed in $EdgeL){
             Foreach($ep in $($ed.properties|%{$_|GM -ea 0|? Membertype -eq Noteproperty}).name){$ed|Add-Member -MemberType NoteProperty -Name $ep -Value $ed.properties.$ep -force}
             $ed
             }
-        $EdgeL = $EdgeL | ToBHOpenGraphEdge * -exclude source,edge,target,properties # Props /!\
+        $EdgeL = $EdgeL | ToBHOGEdge * -exclude source,edge,target,properties # Props /!\
         $Meta = @{
             CollectorName    = $CollectorName
             CollectorVersion = $CollectorVersion
@@ -5053,19 +5216,19 @@ function Start-BHPathFinding{
     BHSearch Domain | BHFinding -Trend -Verbose -start (date).adddays(-10)
 #>
 function Get-BHPathFinding{
-    [CmdletBinding(DefaultParameterSetName='ListAll')]
+    [CmdletBinding(DefaultParameterSetName='Detail')]
     [Alias('BHFinding')]
     Param(
-        [Parameter(Mandatory=0,ParameterSetName='ListAll')][Alias('ListAll')][Switch]$TypeList,
+        [Parameter(Mandatory,ParameterSetName='ListAll')][Alias('ListAll')][Switch]$TypeList,
         [Parameter(Mandatory,ParameterSetName='Avail')][Switch]$ListAvail,
-        [Parameter(Mandatory,ParameterSetName='Detail')][Switch]$Detail,
+        [Parameter(Mandatory=0,ParameterSetName='Detail')][Switch]$Detail,
         [Parameter(Mandatory,ParameterSetName='Spark')][Switch]$Sparkline,
         [Parameter(Mandatory,ParameterSetName='Trend')][Switch]$Trend,
         [Parameter(ParameterSetName='Detail')]
         [Parameter(ParameterSetName='Spark')][Alias('Type')][BHFindingType[]]$FindingType,
         [Parameter(ParameterSetName='Trend',Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName=1,Position=0)]
         [Parameter(ParameterSetName='Spark',Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName=1,Position=0)]
-        [Parameter(ParameterSetName='Detail',Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName=1,Position=0)]
+        [Parameter(ParameterSetName='Detail',Mandatory=0,ValueFromPipeline,ValueFromPipelineByPropertyName=1,Position=0)]
         [Parameter(ParameterSetName='Avail',Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName=1,Position=0)][Alias('ID','objectid')][String[]]$DomainID,
         [Parameter(ParameterSetName='Trend')]
         [Parameter(ParameterSetName='Spark')][Datetime]$StartDate,
@@ -5102,6 +5265,9 @@ function Get-BHPathFinding{
         if($EndDate){$qFilter+="end=$($EndDate|ToBHDate)"}
         Foreach($Dom in $DomList){$qFilter+="environments=$Dom"}
         BHAPI api/v2/attack-paths/finding-trends -Filter $qfilter -Expand Data.findings
+        }
+    elseif($PSCmdlet.ParameterSetName -eq 'detail' -AND -Not$DomainID){
+        BHAPI 'api/v2/attack-paths/details' -Expand data.findings
         }}
     }
 #End
