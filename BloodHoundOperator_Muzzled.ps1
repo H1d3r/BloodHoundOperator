@@ -1,5 +1,5 @@
 ## BloodHoundOperator - Muted ##
-# Monday, September 29, 2025 4:43:04 PM
+# Wednesday, December 10, 2025 9:32:45 AM
 ############################################################
 
 ## BloodHound Operator - BHAPI
@@ -1642,11 +1642,12 @@ function Read-BHDataSource{
     Process{foreach($Obj in $Source){
             $Src='Raw Json Input'
             $Json=if(Test-Path $Obj){$Src = Split-Path $Obj -leaf
-                if($Obj -match "\.json$"){ Get-Content $Obj -Raw}
+                if($Obj -match "\.json$"){Get-Content $Obj -Raw}
                 if($Obj -match "\.zip$"){Read-ZipContent $Obj}
                 }
             else{$Obj}
             foreach($JsonData in ($JSON)){
+                $JsonData = $JsonData | ConvertFrom-Json | ConvertTo-Json -depth 21 -Compress
                 # AD
                 if($JsonData -match ',"meta":{"methods":'){
                     $meta = '{"methods":' + ($JsonData -split ',"meta":{"methods":')[1].trimend('}') + '}' | Convertfrom-JSON
@@ -1669,9 +1670,9 @@ function Read-BHDataSource{
                     Else{$Meta}
                     }
                 # AZ
-                if($JsonData -match '"meta": {"type":"azure"'){
-                    $Meta = ($Jsondata -split '"meta": {"type":"azure"')[1].trim().trimend('}')
-                    $Meta = '{"type":"azure"' + $meta | Convertfrom-json
+                if($JsonData -match '"meta":{"type":"azure"'){
+                    $Meta = ($Jsondata -split '"meta":{"type":"azure"')[1].trim().trimend('}')
+                    $Meta = ('{"type":"azure"' + $meta + '}') | Convertfrom-json
                     $meta | Add-Member -MemberType NoteProperty -Name 'Source' -Value $Src
                     $meta | Add-Member -MemberType NoteProperty -Name 'Data' -Value $Jsondata
                     # Split
@@ -1782,40 +1783,6 @@ function Get-BHDataCollector{
     }
 #End
 
-
-
-################################################ Import-BHDataCollector
-
-<#
-.Synopsis
-    Import BloodHound Data Collector
-.DESCRIPTION
-    Import BloodHound Data Collector
-    /!\ AV
-.EXAMPLE
-    Import-BHDataCollector -SharpHound
-#>
-function Import-BHDataCollector{
-    [Alias('Import-BHCollector')]
-    Param(
-        [Parameter(Mandatory=1,ParameterSetName='SharpHound')][Switch]$SharpHound,
-        [Parameter(Mandatory=1,ParameterSetName='AzureHound')][Switch]$AzureHound,
-        [Parameter(Mandatory=0)][string]$Version,
-        [Parameter(Mandatory=0)][Switch]$Unzip
-        )
-    if(-Not$Version){$Version=(Get-BHDataCollector $PSCmdlet.ParameterSetName).latest}
-    $Download = Switch($PSCmdlet.ParameterSetName){
-        AzureHound{
-            "https://github.com/BloodHoundAD/AzureHound/releases/download/$Version/azurehound-windows-amd64.zip"
-            }
-        SharpHound{
-            "https://github.com/BloodHoundAD/SharpHound/releases/download/$Version/SharpHound-$Version.zip"
-            }
-        }
-    Start-BitsTransfer -source $Download
-    if($Unzip){Expand-Archive $(Split-Path $Download -leaf)}
-    }
-#End
 
 ############################################
 
@@ -4372,7 +4339,7 @@ Function ConvertTo-BHOpenGraphNode{
         [Parameter(Mandatory=1,Position=1,ValueFromPipeline=1)][PSCustomObject[]]$InputObject,
         [Parameter(Mandatory=1,Position=0)][Alias('Label','PrimaryKind')][string]$NodeType,
         [Parameter(Mandatory=0,Position=2)][Alias('ExtraLabel')][string[]]$ExtraType,
-        [Parameter(Mandatory=0)][Alias('IDFrom')][string]$ObjectIDfrom='id',
+        [Parameter(Mandatory=0)][Alias('IDFrom')][string]$ObjectIDfrom,
         [Parameter(Mandatory=0)][string]$NameFrom='Name',
         [Parameter(Mandatory=0)][Alias('Prop')][string[]]$SelectProps='*',
         [Parameter(Mandatory=0)][Alias('xProp')][string[]]$ExcludeProps,
@@ -4393,6 +4360,8 @@ Function ConvertTo-BHOpenGraphNode{
         $oName = if($Obj.$NameFrom){"$($Obj.$NameFrom)".toUpper()}Else{Write-Warning "[BH] No Name Property Found. Please specify property to use";RETURN}
         $oID = if($RandomID){"$([GUID]::NewGuid())".toupper()}else{
             if($Obj.$ObjectIDFrom){"$($Obj.$ObjectIDFrom)".toUpper()}
+            elseif($Obj.objectid -ne $null){$Obj.objectid.toupper()}
+            elseif($Obj.id -ne $null){$Obj.id.toupper()}
             Else{Write-Warning "[BH] No ID Property Found. Please specify property to use";RETURN}
             }
         # Props
@@ -4507,12 +4476,13 @@ Function New-BHOpenGraphIngestPayload{
         [Parameter()][string]$CollectorName='CustomCollector',
         [Parameter()][string]$CollectorVersion='beta',
         [Parameter()][String[]]$CollectionMethod='Custom',
+        [Parameter()][Switch]$NoMeta,
         [Parameter(Mandatory=1,ParameterSetName='Arrows',ValueFromPipeline)][String]$FromArrows
         )
     Begin{}
     Process{if($PSCmdlet.ParameterSetName -eq 'List'){
         $Graph = [PSCustomObject]@{}
-        if(-not $fromArrows -AND (-Not$NodeList -AND -not$EdgeList)){Write-Warning "Please specify OpenGraph nodes and/or edges for payload";RETURN}
+        #if(-not $fromArrows -AND (-Not$NodeList -AND -not$EdgeList)){Write-Warning "Please specify OpenGraph nodes and/or edges for payload";RETURN}
         if($NodeList){$Graph|Add-Member -MemberType NoteProperty -Name nodes -Value @($NodeList)}
         if($EdgeList){$Graph|Add-Member -MemberType NoteProperty -Name edges -Value @($EdgeList)}
         $Meta = [PSCustomObject]@{
@@ -4523,10 +4493,11 @@ Function New-BHOpenGraphIngestPayload{
                 properties = @{collection_methods=@($CollectionMethod)}
                 }
             }
-        $Out=[PSCUstomObject]@{graph=$Graph;metadata=$Meta}
+        $Out=[PSCUstomObject]@{graph=$Graph<#;metadata=$Meta#>}
+        if(-Not$NoMeta){$Out|Add-Member -MemberType NoteProperty -Name metadata -Value $Meta}
         if($NoJSON){$Out}else{$out|Convertto-Json -Depth 23 -Compress:$Compress}
         }}
-    End{if($fromArrows){
+    End{if($PSCmdlet.ParameterSetName -eq 'Arrows'){
         $arrows = $FromArrows | ConvertFrom-Json -Depth 23
         $arrows = $arrows | Select-Object -ExcludeProperty Style
         #$NodeL = $arrows.nodes | select id,@{n='label';e={$_.labels[0]}},@{n='name';e={if($_.caption){$_.Caption}else{$_.id}}},properties
@@ -4940,6 +4911,8 @@ enum BHFindingType{
     LargeDefaultGroupsForceChangePassword
     LargeDefaultGroupsGenericAll
     LargeDefaultGroupsGenericWrite
+    LargeDefaultGroupsManageCA
+    LargeDefaultGroupsManageCertificates
     LargeDefaultGroupsOwns
     LargeDefaultGroupsOwnsLimitedRights
     LargeDefaultGroupsPSRemote
@@ -4986,6 +4959,8 @@ enum BHFindingType{
     T0GoldenCert
     T0HasSIDHistory
     T0Logins
+    T0ManageCA
+    T0ManageCertificates
     T0MarkSensitive
     T0Owns
     T0OwnsLimitedRights

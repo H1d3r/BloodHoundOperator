@@ -80,6 +80,7 @@
     - [New-BHPathQuery](#new-bhpathquery)
     - [Remove-BHPathQuery](#remove-bhpathquery)
     - [Set-BHPathQuery](#set-bhpathquery)
+    - [Get-BHPathQueryOnlineLibrary](#get-bhpathqueryonlinelibrary)
     - [Set-BHPathQueryScope](#set-bhpathqueryscope)
     - [Get-BHPathRelayTarget](#get-bhpathrelaytarget)
 - [BHAssetGroup](#bhassetgroup)
@@ -323,9 +324,9 @@ New BloodHound API Session
 #### **Syntax:**
 
 ```PowerShell
-New-BHSession [-JWT] <string> [-Server <string>] [-Port <string>] [-Protocol <string>] [-CypherClip] 
+New-BHSession [-JWT] <string> [-Server <string>] [-Port <string>] [-Protocol <string>] [-CypherClip] [-Edition] 
 
-New-BHSession -TokenID <string> -Token <securestring> [-Server <string>] [-Port <string>] [-Protocol <string>] [-CypherClip]
+New-BHSession -TokenID <string> -Token <securestring> [-Server <string>] [-Port <string>] [-Protocol <string>] [-CypherClip] [-Edition]
 ```
 
 #### **Examples:**
@@ -1820,7 +1821,7 @@ Get BloodHound Data Upload
 #### **Syntax:**
 
 ```PowerShell
-Get-BHDataUpload [[-Expand] <string>] [[-Limit] <int>]
+Get-BHDataUpload [[-ID] <string>] [[-Expand] <string>] [[-Limit] <int>]
 ```
 
 #### **Examples:**
@@ -2664,9 +2665,7 @@ Get-BHPathQuery -Name <string[]> [-Expand <string>] [-Cypher]
 
 Get-BHPathQuery -Scope <string> [-Expand <string>] [-Cypher] 
 
-Get-BHPathQuery -Description <string[]> [-Expand <string>] [-Cypher] 
-
-Get-BHPathQuery -OnlineLibrary [-Expand <string>] [-Cypher]
+Get-BHPathQuery -Description <string[]> [-Expand <string>] [-Cypher]
 ```
 
 #### **Examples:**
@@ -2854,6 +2853,61 @@ PS > Set-BHPathQuery -ID 123 -Name MySavedQuery
 ```
 
 See `Help Set-BHQuery` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHPathQueryOnlineLibrary**
+
+**Alias**: `BHQLib`
+
+Get BloodHound Query
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHPathQueryOnlineLibrary
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > BHQuery
+
+
+-------------------------- EXAMPLE 2 --------------------------
+
+PS > BHQuery -ID 123
+
+
+-------------------------- EXAMPLE 3 --------------------------
+
+PS > BHQuery -name MyQuery
+
+
+-------------------------- EXAMPLE 4 --------------------------
+
+BHQuery -description <keyword>
+
+
+-------------------------- EXAMPLE 5 --------------------------
+
+BHQuery -scope <shared|public>
+
+```
+
+See `Help BHQLib` for more info
 
 </br>
 
@@ -3346,9 +3400,9 @@ New OpenGraph Ingest Payload
 #### **Syntax:**
 
 ```PowerShell
-New-BHOpenGraphIngestPayload -FromArrows <string> [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] 
+New-BHOpenGraphIngestPayload -FromArrows <string> [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-NoMeta] 
 
-New-BHOpenGraphIngestPayload [-NodeList <psobject[]>] [-EdgeList <psobject[]>] [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>]
+New-BHOpenGraphIngestPayload [-NodeList <psobject[]>] [-EdgeList <psobject[]>] [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-NoMeta]
 ```
 
 #### **Examples:**
@@ -4017,6 +4071,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Friday, August 15, 2025 4:05:22 PM
+Wednesday, December 10, 2025 10:33:02 AM
 
 
