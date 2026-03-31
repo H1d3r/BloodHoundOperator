@@ -19,6 +19,7 @@
     - [Get-BHServerAuditLog](#get-bhserverauditlog)
     - [Get-BHServerConfig](#get-bhserverconfig)
     - [Set-BHServerConfig](#set-bhserverconfig)
+    - [Get-BHServerDogTag](#get-bhserverdogtag)
     - [Get-BHServerFeature](#get-bhserverfeature)
     - [Set-BHServerFeature](#set-bhserverfeature)
     - [Get-BHServerSAMLEndpoint](#get-bhserversamlendpoint)
@@ -33,6 +34,8 @@
     - [New-BHOperator](#new-bhoperator)
     - [Remove-BHOperator](#remove-bhoperator)
     - [Set-BHOperator](#set-bhoperator)
+    - [Get-BHOperatorAccessControl](#get-bhoperatoraccesscontrol)
+    - [Set-BHOperatorAccessControl](#set-bhoperatoraccesscontrol)
     - [Approve-BHOperatorEULA](#approve-bhoperatoreula)
     - [Get-BHOperatorHelp](#get-bhoperatorhelp)
     - [Get-BHOperatorMFAStatus](#get-bhoperatormfastatus)
@@ -88,6 +91,10 @@
     - [New-BHAssetGroup](#new-bhassetgroup)
     - [Remove-BHAssetGroup](#remove-bhassetgroup)
     - [Set-BHAssetGroup](#set-bhassetgroup)
+    - [Approve-BHAssetGroupCertification](#approve-bhassetgroupcertification)
+    - [Deny-BHAssetGroupCertification](#deny-bhassetgroupcertification)
+    - [Get-BHAssetGroupCertification](#get-bhassetgroupcertification)
+    - [Get-BHAssetGroupHistory](#get-bhassetgrouphistory)
     - [Get-BHAssetGroupSelector](#get-bhassetgroupselector)
     - [New-BHAssetGroupSelector](#new-bhassetgroupselector)
     - [Remove-BHAssetGroupSelector](#remove-bhassetgroupselector)
@@ -95,12 +102,21 @@
     - [Test-BHAssetGroupSelector](#test-bhassetgroupselector)
 - [BHOpenGraph](#bhopengraph)
     - [ConvertTo-BHOpenGraphEdge](#convertto-bhopengraphedge)
+    - [Get-BHOpenGraphEdgeType](#get-bhopengraphedgetype)
+    - [Get-BHOpenGraphExtension](#get-bhopengraphextension)
+    - [Remove-BHOpenGraphExtension](#remove-bhopengraphextension)
+    - [New-BHOpenGraphExtensionUpload](#new-bhopengraphextensionupload)
     - [New-BHOpenGraphIngestPayload](#new-bhopengraphingestpayload)
     - [ConvertTo-BHOpenGraphNode](#convertto-bhopengraphnode)
     - [Get-BHOpenGraphNodeType](#get-bhopengraphnodetype)
     - [New-BHOpenGraphNodeType](#new-bhopengraphnodetype)
     - [Remove-BHOpenGraphNodeType](#remove-bhopengraphnodetype)
     - [Set-BHOpenGraphNodeType](#set-bhopengraphnodetype)
+    - [New-BHOpenGraphSchema](#new-bhopengraphschema)
+    - [Add-BHOpenGraphSchemaEdgeKind](#add-bhopengraphschemaedgekind)
+    - [Add-BHOpenGraphSchemaFinding](#add-bhopengraphschemafinding)
+    - [Add-BHOpenGraphSchemaNodeKind](#add-bhopengraphschemanodekind)
+    - [Get-BHOpenGraphSourceKind](#get-bhopengraphsourcekind)
 - [BHClient](#bhclient)
     - [Get-BHClient](#get-bhclient)
     - [New-BHClient](#new-bhclient)
@@ -568,7 +584,7 @@ Invoke BloodHound API call
 #### **Syntax:**
 
 ```PowerShell
-Invoke-BHAPI [-URI] <string> [[-Method] <string>] [[-Body] <string>] [[-Filter] <string[]>] [[-SessionID] <int[]>] [[-Timeout] <int>] [[-Expand] <string>]
+Invoke-BHAPI [-URI] <string> [[-Method] <string>] [[-Body] <string>] [[-Filter] <string[]>] [[-SessionID] <int[]>] [[-Timeout] <int>] [[-Expand] <string>] [[-ContentType] <string>]
 ```
 
 #### **Examples:**
@@ -705,6 +721,41 @@ PS > Set-BHConfig -key analysis.reconciliation -value @{enabled=$true}
 ```
 
 See `Help Set-BHConfig` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHServerDogTag**
+
+**Alias**: `BHDogTag`
+
+
+Get-BHServerDogTag [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHServerDogTag
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help BHDogTag` for more info
 
 </br>
 
@@ -1177,6 +1228,88 @@ See `Help Set-BHOperator` for more info
 
 ---
 
+### **Get-BHOperatorAccessControl**
+
+**Alias**: `BHAccessControl`
+
+
+Get-BHOperatorAccessControl [<CommonParameters>]
+
+Get-BHOperatorAccessControl -OperatorID <string[]> [<CommonParameters>]
+
+Get-BHOperatorAccessControl -EnvironmentID <string> [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOperatorAccessControl 
+
+Get-BHOperatorAccessControl -OperatorID <string[]> 
+
+Get-BHOperatorAccessControl -EnvironmentID <string>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help BHAccessControl` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Set-BHOperatorAccessControl**
+
+**Alias**: `Set-BHAccessControl`
+
+
+Set-BHOperatorAccessControl [-Add] <string[]> -ID <string[]> [-Force] [<CommonParameters>]
+
+Set-BHOperatorAccessControl -Remove <string[]> -ID <string[]> [-Force] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Set-BHOperatorAccessControl [-Add] <string[]> -ID <string[]> [-Force] 
+
+Set-BHOperatorAccessControl -Remove <string[]> -ID <string[]> [-Force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help Set-BHAccessControl` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
 ### **Approve-BHOperatorEULA**
 
 [BHE] Approve BloodHound EULA
@@ -1625,13 +1758,13 @@ See `Help BHDataAnalysis` for more info
 ### **Clear-BHDatabase**
 
 
-Clear-BHDatabase [[-GraphData] <string[]>] [[-CustomSelector] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-Really] [<CommonParameters>]
+Clear-BHDatabase [[-GraphData] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-IKnowWhatImDoing] [<CommonParameters>]
 
 
 #### **Syntax:**
 
 ```PowerShell
-Clear-BHDatabase [[-GraphData] <string[]>] [[-CustomSelector] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-Really]
+Clear-BHDatabase [[-GraphData] <string[]>] [-IngestHistory] [-DataHistory] [-Force] [-IKnowWhatImDoing]
 ```
 
 #### **Examples:**
@@ -3134,7 +3267,7 @@ Set BH Asset Group
 #### **Syntax:**
 
 ```PowerShell
-Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Type <string>] [-Description <string>] [-Position <int>] [-RequireCertify <bool>]
+Set-BHAssetGroup [[-GroupID] <string>] [-Name <string>] [-Description <string>] [-Position <int>] [-RequireCertify <bool>]
 ```
 
 #### **Examples:**
@@ -3147,6 +3280,146 @@ PS > Set-BHAssetGroup -Name MyAssetGroup -type Label
 ```
 
 See `Help Set-BHZone` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Approve-BHAssetGroupCertification**
+
+**Alias**: `Approve-BHZoneCertification`
+
+
+Approve-BHAssetGroupCertification [-ID] <int[]> [[-Note] <string>] [-force] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Approve-BHAssetGroupCertification [-ID] <int[]> [[-Note] <string>] [-force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help Approve-BHZoneCertification` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Deny-BHAssetGroupCertification**
+
+**Alias**: `Deny-BHZoneCertification`
+
+
+Deny-BHAssetGroupCertification [-ID] <int[]> [[-Note] <string>] [-force] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Deny-BHAssetGroupCertification [-ID] <int[]> [[-Note] <string>] [-force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help Deny-BHZoneCertification` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHAssetGroupCertification**
+
+**Alias**: `BHZoneCertification`
+
+
+Get-BHAssetGroupCertification [[-ZoneID] <string[]>] [[-Status] <BHCertificationStatus>] [[-limit] <Object>] [<CommonParameters>]
+
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHAssetGroupCertification [[-ZoneID] <string[]>] [[-Status] <BHCertificationStatus>] [[-limit] <Object>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help BHZoneCertification` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHAssetGroupHistory**
+
+**Alias**: `BHZoneHistory`
+
+
+Get-BHAssetGroupHistory 
+
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHAssetGroupHistory
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1
+
+```
+
+See `Help BHZoneHistory` for more info
 
 </br>
 
@@ -3210,7 +3483,7 @@ New BH Asset Group Selector
 #### **Syntax:**
 
 ```PowerShell
-New-BHAssetGroupSelector [-GroupID] <string> [-Name] <string> [-Seed] <string[]> [-SeedType <string>] [-Description <string>] [-AutoCertify <bool>] [-Disabled <bool>]
+New-BHAssetGroupSelector [-GroupID] <string> [-Name] <string> [-Seed] <string[]> [-SeedType <string>] [-Description <string>] [-AutoCertify <bool>]
 ```
 
 #### **Examples:**
@@ -3238,6 +3511,8 @@ See `Help New-BHSelector` for more info
 
 ### **Remove-BHAssetGroupSelector**
 
+**Alias**: `Remove-BHSelector`
+
 Remove BH Asset Group Selector
 
 #### **Syntax:**
@@ -3255,7 +3530,7 @@ PS > Remove-BHSelector 1 44 -force
 
 ```
 
-See `Help Remove-BHAssetGroupSelector` for more info
+See `Help Remove-BHSelector` for more info
 
 </br>
 
@@ -3352,7 +3627,7 @@ Convert to OpenGraph Edge
 #### **Syntax:**
 
 ```PowerShell
-ConvertTo-BHOpenGraphEdge [-EdgeType] <string> [[-Start] <string>] [[-End] <string>] [[-SelectProps] <string[]>] -InputObject <psobject[]> [-ExcludeProps <string[]>] [-SourceByName] [-SourceKind <string>] [-TargetByName] [-TargetKind <string>] [-AllowOrphans]
+ConvertTo-BHOpenGraphEdge [-EdgeType] <string> [[-StartMatch] <hashtable>] [[-EndMatch] <hashtable>] [[-SelectProps] <string[]>] -InputObject <psobject[]> [-ExcludeProps <string[]>] [-AddProps <hashtable>] [-SourceKind <string>] [-TargetKind <string>] [-AllowOrphans]
 ```
 
 #### **Examples:**
@@ -3360,24 +3635,157 @@ ConvertTo-BHOpenGraphEdge [-EdgeType] <string> [[-Start] <string>] [[-End] <stri
 ```PowerShell
 -------------------------- EXAMPLE 1 --------------------------
 
-$RelList | ToBHOpenGraphEdge -Edge CanAbuse -Start <sourceidproperty>-End <targetidproperty>
+PS > $InputObj | ToBHOGEdge -Edge CanAbuse -Start @{id='SourceID'} -End @{id='TargetID'}
 
 
 -------------------------- EXAMPLE 2 --------------------------
 
-$RelList | ToBHOpenGraphEdge  -Edge CanAbuse -TargetByName  -SourceByName -Start <sourcenameproperty>-End <targetnameproperty>
-Will match on name instead of objectid when importing
-
-
--------------------------- EXAMPLE 3 --------------------------
-
-PS > $RelList | ToBHOpenGraphEdge -Edge *
-If $RelList objects have source,edge,target property (ex: Import-Csv)
-Any other props will be used as node property unless -excludeProps is used.
+PS > $InputObj| ToBHOGEdge  -Edge CanAbuse -Start @{name='SourceName'} -End @{name='TargetName'}
+Will match on name instead of id when importing
 
 ```
 
 See `Help ToBHOGEdge` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHOpenGraphEdgeType**
+
+**Alias**: `BHOGEdgeType`
+
+Get OG Edge Type
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOpenGraphEdgeType [[-Schema] <string>] [-IncludeBuiltIn] [-Traversable]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Get-BHOpenGraphEdgeType
+
+```
+
+See `Help BHOGEdgeType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHOpenGraphExtension**
+
+**Alias**: `BHOGExtension`
+
+Get OG Extensions
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOpenGraphExtension
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Get-BHOpenGraphExtension
+
+```
+
+See `Help BHOGExtension` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Remove-BHOpenGraphExtension**
+
+**Alias**: `Remove-BHOGExtension`
+
+Upload OG Extension
+
+#### **Syntax:**
+
+```PowerShell
+Remove-BHOpenGraphExtension [-ID] <int[]> [-force]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Remove-BHOpenGraphExtensionUpload -ID $ExtensionID [-Force]
+
+```
+
+See `Help Remove-BHOGExtension` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHOpenGraphExtensionUpload**
+
+**Alias**: `New-BHOGExtension`
+
+Upload OG Extension
+
+#### **Syntax:**
+
+```PowerShell
+New-BHOpenGraphExtensionUpload [-Extension] <string>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $ExtensionJson | New-BHOpenGraphExtensionUpload
+
+```
+
+See `Help New-BHOGExtension` for more info
 
 </br>
 
@@ -3400,9 +3808,9 @@ New OpenGraph Ingest Payload
 #### **Syntax:**
 
 ```PowerShell
-New-BHOpenGraphIngestPayload -FromArrows <string> [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-NoMeta] 
+New-BHOpenGraphIngestPayload -FromArrows <string> [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-SourceKind <string>] [-NoMeta] 
 
-New-BHOpenGraphIngestPayload [-NodeList <psobject[]>] [-EdgeList <psobject[]>] [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-NoMeta]
+New-BHOpenGraphIngestPayload [-NodeList <psobject[]>] [-EdgeList <psobject[]>] [-NoJSON] [-Compress] [-CollectorName <string>] [-CollectorVersion <string>] [-CollectionMethod <string[]>] [-SourceKind <string>] [-NoMeta]
 ```
 
 #### **Examples:**
@@ -3491,7 +3899,7 @@ See `Help ToBHOGNode` for more info
 
 ### **Get-BHOpenGraphNodeType**
 
-**Alias**: `BHOGType`
+**Alias**: `BHOGNodeType`
 
 Get OpenGraph Node Type
 
@@ -3510,7 +3918,7 @@ BHOpenGraphType [<$NodeType>] [-Config]
 
 ```
 
-See `Help BHOGType` for more info
+See `Help BHOGNodeType` for more info
 
 </br>
 
@@ -3526,7 +3934,7 @@ See `Help BHOGType` for more info
 
 ### **New-BHOpenGraphNodeType**
 
-**Alias**: `New-BHOGType`
+**Alias**: `New-BHOGNodeType`
 
 New OpenGraph Node type
 
@@ -3547,7 +3955,7 @@ PS >
 
 ```
 
-See `Help New-BHOGType` for more info
+See `Help New-BHOGNodeType` for more info
 
 </br>
 
@@ -3563,7 +3971,7 @@ See `Help New-BHOGType` for more info
 
 ### **Remove-BHOpenGraphNodeType**
 
-**Alias**: `Remove-BHOGType`
+**Alias**: `Remove-BHOGNodeType`
 
 Remove OpenGraph Node type
 
@@ -3582,7 +3990,7 @@ Remove-BHOpenGraphType <$NodeType>[-Force]
 
 ```
 
-See `Help Remove-BHOGType` for more info
+See `Help Remove-BHOGNodeType` for more info
 
 </br>
 
@@ -3598,7 +4006,7 @@ See `Help Remove-BHOGType` for more info
 
 ### **Set-BHOpenGraphNodeType**
 
-**Alias**: `Set-BHOGType`
+**Alias**: `Set-BHOGNodeType`
 
 Set Custom Node type
 
@@ -3613,11 +4021,186 @@ Set-BHOpenGraphNodeType [-NodeType] <string> [[-Icon] <string>] [[-Color] <strin
 ```PowerShell
 -------------------------- EXAMPLE 1 --------------------------
 
-PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
+PS > Set-BHOpenGraphType Unknown -IconName question -color '#FFFFFF'
 
 ```
 
-See `Help Set-BHOGType` for more info
+See `Help Set-BHOGNodeType` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **New-BHOpenGraphSchema**
+
+**Alias**: `New-BHOGSchema`
+
+New OG Extension
+
+#### **Syntax:**
+
+```PowerShell
+New-BHOpenGraphSchema [-Name] <string> [-Namespace <string>] [-Version <string>] [-EnvironmentKind <string>] [-Sourcekind <string>] [-PrincipalKinds <string[]>] [-IncludeFindings]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $OGSchema = New-BHOGSchema GitHub -Prefix GH
+
+```
+
+See `Help New-BHOGSchema` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Add-BHOpenGraphSchemaEdgeKind**
+
+**Alias**: `Add-BHOGSchemaEdge`
+
+Add OG Schema Edge Kind
+
+#### **Syntax:**
+
+```PowerShell
+Add-BHOpenGraphSchemaEdgeKind [-Name] <string> -InputObject <string> [-Description <string>] [-IsTraversable <bool>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $OGSchema | Add-BHOGSchemaEdge ThisEdge
+
+```
+
+See `Help Add-BHOGSchemaEdge` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Add-BHOpenGraphSchemaFinding**
+
+**Alias**: `Add-BHOGSchemaFinding`
+
+Add OG Schema Findings
+
+#### **Syntax:**
+
+```PowerShell
+Add-BHOpenGraphSchemaFinding [-InputObject] <string>
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $OGSchema | Add-BHOGSchemaFinding
+
+```
+
+See `Help Add-BHOGSchemaFinding` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Add-BHOpenGraphSchemaNodeKind**
+
+**Alias**: `Add-BHOGSchemaNode`
+
+Add OG Schema Node Kind
+
+#### **Syntax:**
+
+```PowerShell
+Add-BHOpenGraphSchemaNodeKind [-Name] <string> -InputObject <string> [-DisplayName <string>] [-Description <string>] [-IsDisplayKind <bool>] [-Icon <string>] [-Color <string>]
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > $OGSchema | Add-BHOGSchemaNode ThisNodeKind
+
+```
+
+See `Help Add-BHOGSchemaNode` for more info
+
+</br>
+
+</br>
+
+
+[BackToTop](#table-of-content)
+
+
+</br>
+
+---
+
+### **Get-BHOpenGraphSourceKind**
+
+**Alias**: `BHOGSourceKind`
+
+Get OG SourceKinds
+
+#### **Syntax:**
+
+```PowerShell
+Get-BHOpenGraphSourceKind
+```
+
+#### **Examples:**
+
+```PowerShell
+-------------------------- EXAMPLE 1 --------------------------
+
+PS > Get-BHOpenGraphSourceKind
+
+```
+
+See `Help BHOGSourceKind` for more info
 
 </br>
 
@@ -4071,6 +4654,6 @@ See `Help Set-BHEvent` for more info
 
 </br>
 
-Wednesday, December 10, 2025 10:33:02 AM
+Tuesday, March 31, 2026 4:02:25 PM
 
 

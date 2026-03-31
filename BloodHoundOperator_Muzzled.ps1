@@ -1,5 +1,5 @@
-## BloodHoundOperator - Muted ##
-# Wednesday, December 10, 2025 9:32:45 AM
+## BloodHoundOperator - Muzzled ##
+# Tuesday, March 31, 2026 2:02:46 PM
 ############################################################
 
 ## BloodHound Operator - BHAPI
@@ -233,7 +233,9 @@ function Invoke-BHAPI{
         # Timeout
         [Parameter(Mandatory=0)][Alias('Prefer')][int]$Timeout,
         # Expand
-        [Parameter(Mandatory=0)][Alias('Dot')][String]$Expand
+        [Parameter(Mandatory=0)][Alias('Dot')][String]$Expand,
+        # ContentType
+        [Parameter(Mandatory=0)][String]$ContentType='application/json'
         )
     begin{
         if(-Not$SessionID){Write-Warning "No BHSession found: Use New-BHSession [Help New-BHSession]";Break}
@@ -268,17 +270,19 @@ function Invoke-BHAPI{
                 $Sign      = [Convert]::ToBase64String($HMAC)
                 # Headers
                 $Headers = @{
-                    Authorization = "BHESignature $TokenID"
-                    Signature     = $Sign
-                    RequestDate   = $Timestamp
+                    Authorization  = "BHESignature $TokenID"
+                    Signature      = $Sign
+                    RequestDate    = $Timestamp
+                    "Content-Type" = $ContentType
                     }}
             ## JWT
             else{$Headers = @{
                 Authorization = "Bearer $($Session.Token)"
+                "Content-Type" = $ContentType 
                 }}
+            if($ContentType -eq 'text/csv'){$Headers.add('Accept',"text/csv")}
+            if($ContentType -match 'zip'){$Headers.add('X-File-Upload-Name',"unknown.zip")}
             if($Timeout -ne $Null){$Headers.add('Prefer',"wait=$Timeout")}
-            ## DEBUG
-            #RETURN $Headers
             # Verbose
             Write-verbose "[BH] $Method $URI"
             if($Body){Write-Verbose "$Body"}
@@ -286,14 +290,16 @@ function Invoke-BHAPI{
             if($Port){$Server="${server}:${Port}"}
             $Params = @{
                 Uri         = "${Proto}://${Server}/${URI}"
-                ContentType = if($Method -eq 'POST' -AND $uri -match "saml/providers$"){'multipart/form-data'}else{'application/json'}
+                #ContentType = $ContentType
                 Method      = $Method
                 Headers     = $Headers
                 UserAgent   = 'PowerShell BloodHound Operator'
                 #TimeoutSec  = 300
                 }
             # Body
-            if($Body){$Params.Add('Body',"$Body")}
+            if($Body -ne $null){$Params.Add('Body',$Body)}
+            ## DEBUG
+            #RETURN $Params
             # Call
             try{$Reply = Invoke-RestMethod @Params -verbose:$false -UseBasicParsing}catch{Get-ErrorWarning;Break}
             # Output
@@ -306,6 +312,9 @@ function Invoke-BHAPI{
     end{}###
     }
 #End
+
+
+
 
 ## BloodHound Operator - BHSession
 # New-BHSession
@@ -546,27 +555,41 @@ function New-BHSession{
         Timeout    = 0
         Limit      = 1000
         CypherClip = [Bool]$PSCmdlet.MyInvocation.BoundParameters.CypherClip.IsPresent
+        SourceList = @()
+        ZoneList   = @()
         TokenID    = if($JWT){'JWT'}else{$TokenID}
         Token      = if($JWT){$JWT}else{$Token}
         }
     # Add New Session
     $Null = $BHSession.add($NewSession)
     # Version
-    $vers = BHAPI 'api/version' -Expand 'data.server_version' -SessionID $SessionID -verbose:$False
+    $vers = BHAPI 'api/version' -Expand 'data' -SessionID $SessionID -verbose:$False
     if(-Not$Vers){
     #($Script:BHSession | ? x).Version = Try{BHAPI 'api/version' -Expand 'data.server_version' -SessionID $SessionID -verbose:$False}Catch{
         #$BHSession.Remove($NewSession)
         Write-Warning "Invalid Session Token - No Session Selected"
         RETURN 
         }
-    else{($Script:BHSession | ? x).Version = $Vers}
+    else{($Script:BHSession | ? x).Version = $Vers.server_version}
     # Operator
     ($Script:BHSession | ? x).Operator = (BHAPI "api/v2/self" -Expand 'data.principal_name' -SessionID $SessionID -verbose:$False)
     # Role
     ($Script:BHSession | ? x).Role = (BHAPI "api/v2/self" -Expand 'data.roles' -SessionID $SessionID -verbose:$False).name
-    # Edition 
-    $BHEdition = if($Edition){$Edition}else{if($NewSession.server -match "\.bloodhoundenterprise\.io$"){'BHE'}else{'BHCE'}}
+    # Edition <---------- Change
+    #$BHEdition = if($Edition){$Edition}else{if($NewSession.server -match "\.bloodhoundenterprise\.io$"){'BHE'}else{'BHCE'}}
+    $BHEdition = Switch($Vers.product_edition){Community{'BHCE'}enterprise{'BHE'}}
     ($Script:BHSession | ? x).Edition = $BHEdition 
+    # SourceKinds
+    $SrcList = Get-BHOpenGraphSourceKind | select id,name #,active
+    ($Script:BHSession | ? x).SourceList = $SrcList
+    # Zones
+    $ZnList = Get-BHAssetGroup | select id,name #,position,kind_id|sort position,name
+    ($Script:BHSession | ? x).ZoneList = $ZnList
+    # Findings
+    if($BHEdition -eq 'BHE'){
+        $FList = BHFinding -ListAll
+        $Script:BHSession | ? x | Add-Member -MemberType NoteProperty -Name FindingList -Value $FList
+        } 
     }
 #End
 
@@ -730,26 +753,22 @@ function Get-BHServerVersion{
         $Reply = Invoke-BHAPI "api/version" -Expand data -SessionID $SessID | select -exclude API
         $ShHversion = Invoke-BHAPI "api/v2/collectors/sharphound" -Expand data.latest -SessionID $SessID
         $AzHversion = Invoke-BHAPI "api/v2/collectors/azurehound" -Expand data.latest -SessionID $SessID
+        #$Extension = Invoke-BHAPI extensions -expand data.extensions -SessionID $SessID | ? is_builtin -eq $false | select name,version
         $Reply | Add-Member -MemberType NoteProperty -Name SharpHound -Value $ShHversion
         $Reply | Add-Member -MemberType NoteProperty -Name AzureHound -Value $AzHversion
+        #$Reply | Add-Member -MemberType NoteProperty -Name Extension -Value $Extension
         $Reply
         }}
 #####End
 
 
-<#
-function Get-BHServerVersion{
+function Get-BHServerDogTag{
     [CmdletBinding()]
-    [Alias('BHVersion')]
+    [Alias('BHDogTag')]
     Param()
-    [PSCustomObject]@{
-        BloodHound = Invoke-BHAPI "api/version" -Expand data.server_version
-        SharpHound = Invoke-BHAPI "api/v2/collectors/sharphound" -Expand data.latest
-        AzureHound = Invoke-BHAPI "api/v2/collectors/azurehound" -Expand data.latest
-        }
+    BHAPI dog-tags -expand data
     }
 #End
-#>
 
 ################################################ Get-BHServerConfig
 
@@ -763,7 +782,7 @@ function Get-BHServerVersion{
 #>
 Function Get-BHServerConfig{
     [CmdletBinding()]
-    [Alias('BHConfig')]
+    [Alias('BHConfig','Get-BHConfig')]
     Param()
     Invoke-BHAPI 'api/v2/config' -expand data
     }
@@ -980,7 +999,8 @@ function Get-BHServerSAMLEndpoint{
 # New-BHOperatorToken
 # Revoke-BHOperatorToken
 # Get-BHOperatorHelp
-
+# Get-BHOperatorAccessControl
+# Set-BHOperatorAccessControl
 
 ################################################ Get-BHOperator
 
@@ -1442,81 +1462,61 @@ Function Revoke-BHOperatorToken{
 #End
 
 
+####################################################### ETAC
 
-################################################ Get-BHOperatorHelp
-
-<#
-.Synopsis
-    Get BloodHound Operator Help
-.DESCRIPTION
-    Get BloodHound Operator Help
-.EXAMPLE
-    BHHelp
-#>
-function Get-BHOperatorHelp{
-    [CmdletBinding(DefaultParameterSetName='BH')]
-    [Alias('BHHelp')]
+function Get-BHOperatorAccessControl{
+    [CmdletBinding(DefaultParameterSetName='All')]
+    [Alias('BHAccessControl','Get-BHAccessControl','BHEtac')]
     Param(
-        [Parameter(Mandatory=0,ParameterSetName='BH')][Switch]$ReadTheDocs,
-        [Parameter(ParameterSetName='T0')][Switch]$TierZero,
-        [Parameter()][Switch]$Online
+        [Parameter(Mandatory=1,ParameterSetName='OID',ValueFromPipelineByPropertyName=1)][Alias('id')][String[]]$OperatorID,
+        [Parameter(Mandatory=1,ParameterSetName='EID')][String]$EnvironmentID
         )
-    if($ReadTheDocs){Start-Process 'https://support.bloodhoundenterprise.io/hc/en-us/categories/1260801932169-General'}
-    elseif($Online){
-        if($TierZero){Start-Process 'https://specterops.github.io/TierZeroTable/'}
-        else{Start-Process 'https://gist.github.com/SadProcessor/f996c01b57e1f11c67f91de2070d45fe'}
+    Begin{
+        $AC = BHOperator | select Principal_name,@{n='Role';e={$_.roles.name}},all_environments,@{n='Access';e={$_.environment_targeted_access_control.environment_id}},id
         }
-    else{if($TierZero){
-        $TZ = irm 'https://raw.githubusercontent.com/SpecterOps/TierZeroTable/main/TierZeroTable.csv' | ConvertFrom-Csv -Delimiter ';'
-        $TZ | %{[PSCustomObject]@{
-            Provider = Switch($_.IdP){'Active Directory'{'AD'}Default{$_}}
-            Type = $_.Type
-            Name = $_.name
-            Identifier = $_.Identification
-            IsTierZero  = Switch($_.'Is Tier Zero'){NO{$False}YES{$true}Default{$_}}
-            Description = $_.Description
-            Reasoning = $_.Reasoning
-            CanCompromise          = if($_.'Known Tier Zero compromise by common (mis)configuration'-match"^YES" -OR $_.'Known Tier Zero compromise by default configuration'-match"^YES"){$true}else{'??'}
-            DefaultConfig          = if($_.'Known Tier Zero compromise by common (mis)configuration'-match"^YES" -OR $_.'Known Tier Zero compromise by default configuration'-match"^YES"){if($_.'Known Tier Zero compromise by default configuration'-match"^YES"){$true}else{$false}}else{}
-            CompromiseType         = $(if($_.'Known Tier Zero compromise by common (mis)configuration'-match"^YES"){
-                                        $_.'Known Tier Zero compromise by common (mis)configuration'.split('-')[1].trim()
-                                        }
-                                     elseif($_.'Known Tier Zero compromise by default configuration'-match"^YES"){
-                                        $_.'Known Tier Zero compromise by default configuration'.split('-')[1].trim()
-                                        })
-            IsAdminSDHolder  = Switch($_.'AdminSDHolder protected'){NO{$False}YES{$true}}
-            IsPrivAccessRole = Switch($_.'Microsoft: Privileged access security roles'){NO{$False}YES{$true}}
-            Links = ($_.'External Links'-split("`r`n")).trim()
-            }}
-        }
-        else{$CmdletList = @(
-            Get-Command *-BHComposer*   | sort-object Noun,Verb
-            Get-Command *-BHSession*    | sort-object Noun,Verb
-            Get-Command *-BHAPI*        | sort-object Noun,Verb
-            Get-Command *-BHServer*     | sort-object Noun,Verb
-            Get-Command *-BHOperator*   | sort-object Noun,Verb
-            Get-Command *-BHData*       | sort-object Noun,Verb
-            Get-Command *-BHNode*       | sort-object Noun,Verb
-            Get-Command *-BHPath*       | sort-object Noun,Verb
-            Get-Command *-BHClient*     | sort-object Noun,Verb
-            Get-Command *-BHEvent*      | sort-object Noun,Verb
-            Get-Command *-BHRRule*      | sort-object Noun,Verb
-            Get-Command *-BHDate*       | sort-object Noun,Verb
-            Get-Command *-BHAssetGroup* | sort-object Noun,Verb
-            Get-Command *-BHOpenGraph*  | sort-object Noun,Verb
-            )
-        $Out = Foreach($Cmdlet in $CmdletList){
-            $Als = Get-Alias -Definition $Cmdlet.name -ea 0 | Select -first 1
-            [PSCustomObject]@{
-                Cmdlet   = $Cmdlet.Name
-                Alias    = $Als
-                Description = (Get-Help $Cmdlet.Name).synopsis
-                Examples = "Help $(if($Als){$Als}else{$Cmdlet.Name}) -Example"
-                }}
-        if($BHCE){$Out|? description -notmatch "^\[BHE\]"}else{$Out}
-        }}}
-#####End
+    Process{Foreach($ID in $OperatorID){$AC | ? id -eq $ID}}
+    End{Switch($PSCmdlet.ParameterSetName){
+        EID{$AC|?{$_.all_environments -OR $_.Access -match $EnvironmentID}}
+        All{$AC}
+        }}
+    }
+#End
 
+Function Set-BHOperatorAccessControl{
+    [CmdletBinding(DefaultParameterSetName='Add')]
+    [Alias('Set-BHAccessControl','Set-BHEtac')]
+    Param(
+        [Parameter(Mandatory=1,Position=0,ParameterSetName='Add')][String[]]$Add,
+        [Parameter(Mandatory=1,ParameterSetName='Remove')][String[]]$Remove,
+        [Parameter(Mandatory=1,ValueFromPipelineByPropertyName=1)][String[]]$ID,
+        [Parameter(Mandatory=0)][Switch]$Force
+        )
+    Begin{$AC = BHAccessControl}
+    Process{foreach($Operator in $ID){
+        $OpAC = $AC | ? id -eq $Operator
+        if($OpAc.access -eq $null){$OpAc.Access = @()}
+        Switch($PSCmdlet.ParameterSetName){
+            Add{Foreach($Env in $Add){$OpAC.Access += $Env}}
+            Remove{
+                if($Remove -eq '*'){$Remove = $OpAC.Access}
+                Foreach($Env in $Remove){$OpAC.Access = $OpAC.access | ?{$_ -ne $Env}}
+                }
+            }
+        $Envs = @($OpAc.access | Sort -Unique | %{[PSCustomObject]@{environment_id=$_}})
+        $AllEnvs = $false
+        if($Add -eq '*'){$AllEnvs=$True;$envs=@()}
+        $Body = @{
+            all_environments = $AllEnvs
+            environment_targeted_access_control = @{environments = $Envs}
+            } | Convertto-json -depth 21
+        if($Force -OR $(Confirm-Action "$($PSCmdlet.ParameterSetName) access for $($Opac.principal_name)")){
+            #Body
+            BHAPI bloodhound-users/$Operator PATCH $Body
+            }
+        }}
+    End{}
+    }
+#End
 
 ## BloodHound Operator - BHData
 # Get-BHDataUpload
@@ -1875,13 +1875,72 @@ function Clear-BHDatabase{
     if($ClearItem -AND $($Force -OR $(Confirm-Action "Can't undo later... Are you sure"))){
         if($Really -OR $(Confirm-Action "This is irreversible... Are you really sure")){
             ## Comment line below to remove BHE safety - Don't blame me if you wipe your instance ##
-            if($(BHSession|? x).edition -eq 'BHE'){RETURN 'Computer Says No... ¯\_(ツ)_/¯'}
+            #if($(BHSession|? x).edition -eq 'BHE'){RETURN 'Computer Says No... ¯\_(ツ)_/¯'}
             #DEBUG
-            #$($ClearItem|Convertto-Json)
+            $($ClearItem|Convertto-Json)
             # Clear DB
-            BHAPI api/v2/clear-database POST $($ClearItem|Convertto-Json)
+            #BHAPI api/v2/clear-database POST $($ClearItem|Convertto-Json)
             }
         }
+    }
+#End
+
+
+
+function Clear-BHDatabase{
+    Param(
+        #[ValidateSet('AD','AZ','OG')]
+        #[Parameter()][String[]]$GraphData,
+        [ValidateSet('HighValue','AssetGroup')]
+        [Parameter()][String[]]$CustomSelector,
+        [Parameter()][Switch]$IngestHistory,
+        [Parameter()][Switch]$DataHistory,
+        [Parameter()][Switch]$Force,
+        [Parameter()][Switch]$IKnowWhatImDoing
+        )
+    DynamicParam{
+        $Dico = New-Object Management.Automation.RuntimeDefinedParameterDictionary
+        # Prep DynNamelist
+        $DynSrcList = (BHSession | ? x).sourcelist.name
+        $DynSrcList += 'AllData'
+        # Prep DynP
+        $DynGD = DynP -Name 'GraphData' -Type 'String[]' -Mandat 0 -VSet $DynSrcList
+        # DynP to Dico
+        $Dico.Add("GraphData",$DynGD)
+        # Return Dico
+        Return $Dico
+        }
+    Begin{NoMultiSession
+        # Prep
+        $SrcList = (BHSession | ? x).sourcelist.name
+        }
+    Process{
+    $GraphData = ($DynGD|? name -eq GraphData).value
+    $ClearItem = @{}
+    if($GraphData){
+        $GD = Foreach($Knd in $GraphData){($SrcList | ? name -eq $Knd).id}
+        $ClearItem['deleteSourceKinds']=@($GD)
+        $ClearItem['deleteCollectedGraphData']=$False
+        }
+    if($CustomSelector){
+        $CS = [Array]@()
+        if('HighValue' -in $CustomSelector){$CS+=1}
+        if('AssetGroup' -in $CustomSelector){$CS+=2}
+        $ClearItem['deleteAssetGroupSelectors']=$CS
+        }
+    if($IngestHistory){$ClearItem['deleteFileIngestHistory']=$true}
+    if($DataHistory){$ClearItem['deleteDataQualityHistory']=$true}
+    if($ClearItem -AND $($Force -OR $(Confirm-Action "Can't undo later... Are you sure"))){
+        if($IknowWhatImDoing -OR $(Confirm-Action "This is irreversible... Are you really sure")){
+            ## Comment line below to remove BHE safety - Don't blame me if you wipe your instance ##
+            #if($(BHSession|? x).edition -eq 'BHE'){RETURN 'Computer Says No... ¯\_(ツ)_/¯'}
+            #DEBUG
+            $($ClearItem|Convertto-Json)
+            # Clear DB
+            #BHAPI api/v2/clear-database POST $($ClearItem|Convertto-Json)
+            }
+        }}
+    End{}
     }
 #End
 
@@ -1935,6 +1994,7 @@ enum BHEntityType{
     AZGroup
     AZRole
     AZDevice
+    ## Add OG here...
     }
 #End
 
@@ -3909,7 +3969,29 @@ function New-BHPathQuery{
 # New-BHAssetGroupSelector
 # Set-BHAssetGroupSelector
 # Remove-BHAssetGroupSelector
+# Get-BHAssetGroupHistory
+# Get-BHAssetGroupCertification
+# Approve-BHAssetGroupCertification
+# Deny-BHAssetGroupCertification
 ##############################################################
+
+# BHCertificationStatus
+enum BHCertificationStatus{
+    Pending
+    Rejected
+    UserCertified
+    Automatic
+    }
+
+# BHAutoCertify
+enum BHAutoCertify{
+    Off
+    AllObjects
+    DirectObjects
+    }
+
+
+
 
 <#
 .SYNOPSIS
@@ -3963,6 +4045,7 @@ function New-BHAssetGroup{
         [Parameter(Mandatory=0)][String]$Type='Label',
         [Parameter(Mandatory=0)][String]$Description='Privilege Zone',
         [Parameter(Mandatory=0)][int]$Position,
+        #[Parameter(Mandatory=0)][Switch]$DisableAnalysis,
         [Parameter(Mandatory=0)][Switch]$RequireCertiFy
         )
     NoMultiSession;BHEOnly
@@ -3971,10 +4054,11 @@ function New-BHAssetGroup{
         }
     $AssGrp = @{
         name            = $Name
-        type            = Switch($Type){Tier{0}Label{1}}
+        type            = Switch($Type){Tier{1}Label{3}}
         description     = $Description
         require_certify = if($RequireCertify){$true}else{$false}
         }
+    #$AssGrp['analysis_enabled']=if($Type -eq 'label' -OR $DisableAnalysis){$False}else{$True}
     if('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
         $AssGrp['position'] = $Position
         }
@@ -3997,20 +4081,24 @@ function Set-BHAssetGroup{
     Param(
         [Parameter(Mandatory=0,Position=0)][String]$GroupID,
         [Parameter(Mandatory=0)][String]$Name,
-        [ValidateSet('Tier','Label')]
-        [Parameter(Mandatory=0)][String]$Type,
+        #[ValidateSet('Tier','Label')]
+        #[Parameter(Mandatory=0)][String]$Type,
         [Parameter(Mandatory=0)][String]$Description,
         [Parameter(Mandatory=0)][int]$Position,
+        #[Parameter(Mandatory=0)][Bool]$AnalysisEnabled,
         [Parameter(Mandatory=0)][Bool]$RequireCertify
         )
     NoMultiSession;BHEOnly
-    if(($Type -eq 'Label') -AND ('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys)){
-        Write-Warning "[BH] Asset group position only applies to Tiers. Remove -Position or set -Type Tier";RETURN
-        }
+    #if(($Type -eq 'Label') -AND ('Position' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys)){
+    #    Write-Warning "[BH] Asset group position only applies to Tiers. Remove -Position or set -Type Tier";RETURN
+    #    }
     $AssGrp = @{}
     if($name){$AssGrp['name'] = $Name}
-    if($type){$AssGrp['type'] = Switch($Type){Tier{0}Label{1}}}
+    #if($type){$AssGrp['type'] = Switch($Type){Tier{0}Label{1}}}
     if($description){$AssGrp['description'] = $Description}
+    if('AnalysisEnabled' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
+        $AssGrp['analysis_enabled'] = $AnalysisEnabled
+        }
     if('RequireCertify' -IN $PSCmdlet.MyInvocation.BoundParameters.Keys){
         $AssGrp['require_certify'] = $RequireCertify
         }
@@ -4117,16 +4205,17 @@ function New-BHAssetGroupSelector{
         [ValidateSet('Cypher','ObjectID')]
         [Parameter(Mandatory=0)][string]$SeedType='Cypher',
         [Parameter(Mandatory=0)][String]$Description,
-        [Parameter(Mandatory=0)][bool]$AutoCertify=$true,
-        [Parameter(Mandatory=0)][bool]$Disabled=$false
+        # Change to enum
+        [Parameter(Mandatory=0)][bool]$AutoCertify=$false
+        #[Parameter(Mandatory=0)][bool]$AllowDisable=$true
         )
     $sType = Switch($SeedType){Cypher{2}objectid{1}}
     $Seeds = $Seed|%{@{type=$sType;value=$_}}
     $Hash  = @{
         name  = $Name
         seeds = @($Seeds)
-        auto_certify = $AutoCertify
-        disabled = $Disabled
+        auto_certify = $AutoCertify -as [Int]
+        #allow_disable = $AllowDisable 
         }
     if($Description){$Hash['description']=$Description}
     BHAPI /asset-group-tags/$GroupID/selectors POST $($Hash|Convertto-Json -Depth 21) -expand data
@@ -4151,6 +4240,7 @@ function Set-BHAssetGroupSelector{
         [ValidateSet('Cypher','ObjectID')]
         [Parameter(Mandatory=0)][string]$SeedType,
         [Parameter(Mandatory=0)][String]$Description,
+        # Change to Enum
         [Parameter(Mandatory=0)][bool]$AutoCertify,
         [Parameter(Mandatory=0)][bool]$Disabled
         )
@@ -4181,6 +4271,7 @@ function Set-BHAssetGroupSelector{
     Remove-BHSelector 1 44 -force
 #>
 function Remove-BHAssetGroupSelector{
+    [Alias('Remove-BHSelector')]
     Param(
         [Parameter(Mandatory=1)][int]$GroupID,
         [Parameter(Mandatory=1)][int]$SelectorID,
@@ -4194,6 +4285,97 @@ function Remove-BHAssetGroupSelector{
 
 # ToDo - List kinds ??
 # BHAPI api/v2/graphs/kinds -Expand data.kinds <- Not great output (WiP?)... :(
+
+#ToDo <-------------------------- Add proper filtering switches
+Function Get-BHAssetGroupHistory{
+    [Alias("BHZoneHistory")]
+    Param()
+    BHAPI asset-group-tags-history -expand data.records
+    }
+#End
+
+
+Function Get-BHAssetGroupCertification{
+    [Alias('BHZoneCertification','Get-BHZoneCertification')]
+    Param(
+        [Parameter(Mandatory=0,valueFromPipeline=1)][Alias('id')][String[]]$ZoneID='*',
+        [BHCertificationStatus]$Status,
+        $limit=0
+        )
+    Begin{NoMultiSession;BHOnly
+        $QParam=@("limit=$Limit")
+        if($Status -ne $null){$QParam+="certified=eq:$($Status -as [int])"}
+        $BHAG = BHZone -verbose:$false | select id,name
+        }
+    Process{foreach($Zone in $ZoneID){
+        BHAPI asset-group-tags/certifications -expand data.members -Filter $QParam |%{
+            [PSCustomObject]@{
+                id = $_.id
+                Zone = ($BHAG | ? ID -eq $_.asset_group_tag_id).name
+                primary_kind = $_.primary_kind
+                name = $_.name
+                certified = [BHCertificationStatus]$_.Certified 
+                object_id = $_.object_id
+                environment_id = $_.environment_id
+                created_at = $_.created_at
+                certified_by = $_.certified_by
+                }
+            }
+        }}
+    End{}
+    }
+#End
+
+
+
+
+# POST action=2 / member_ids[] / note
+Function Approve-BHAssetGroupCertification{
+    [Alias('Approve-BHZoneCertification')]
+    Param(
+        [Parameter(Mandatory=1,ValueFromPipelineByPropertyName)][Int[]]$ID,
+        [Parameter(Mandatory=0)][String]$Note,
+        [Parameter(Mandatory=0)][Switch]$force
+        )
+    Begin{NoMultiSession;BHEOnly
+        [Collections.ArrayList]$Collect = @()
+        }
+    Process{foreach($Certif in $ID){$Null=$Collect.add($Certif)}}
+    End{$Hash = @{
+            action     = 2
+            member_ids = $Collect
+            note       = $Note
+            } | ConvertTo-Json -Depth 21
+        if($Force -OR $(Confirm-Action "Approve certfication for $($Collect.count) node$(if($Collect.count -gt 1){'s'})")){
+            BHAPI asset-group-tags/certifications POST $Hash
+            }
+        }
+    }
+#End
+
+# POST action=1 / member_ids[] / note
+Function Deny-BHAssetGroupCertification{
+    [Alias('Deny-BHZoneCertification')]
+    Param(
+        [Parameter(Mandatory=1,ValueFromPipelineByPropertyName)][Int[]]$ID,
+        [Parameter(Mandatory=0)][String]$Note,
+        [Parameter(Mandatory=0)][Switch]$force
+        )
+    Begin{NoMultiSession;BHEOnly
+        [Collections.ArrayList]$Collect = @()
+        }
+    Process{foreach($Certif in $ID){$Null=$Collect.add($Certif)}}
+    End{$Hash = @{
+            action     = 1
+            member_ids = $Collect
+            note       = $Note
+            } | ConvertTo-Json -Depth 21
+        if($Force -OR $(Confirm-Action "Reject certfication for $($Collect.count) node$(if($Collect.count -gt 1){'s'})")){
+            BHAPI asset-group-tags/certifications POST $Hash
+            }
+        }
+    }
+#End
 
 ######################################################### BHOpenGraph
 
@@ -4221,7 +4403,7 @@ New-BHOpenGraphIngestPayload -NodeList <> -EdgeList <>
     BHOpenGraphType [<$NodeType>] [-Config]
 #>
 function Get-BHOpenGraphNodeType{
-    [Alias('BHOGType','Get-BHOGType')]
+    [Alias('BHOGNodeType','Get-BHOGNodeType')]
     Param(
         [Parameter(Mandatory=0)][Alias('Label','PrimaryKind')][String[]]$NodeType,
         [Parameter(Mandatory=0)][Switch]$Config
@@ -4242,7 +4424,7 @@ function Get-BHOpenGraphNodeType{
         
 #>
 function New-BHOpenGraphNodeType{
-    [Alias('New-BHOGType')]
+    [Alias('New-BHOGNodeType')]
     Param(
         [Parameter(Mandatory=1,Position=0,ParameterSetName='Type')][Alias('Label','PrimaryKind')][String]$NodeType,
         [Parameter(Mandatory=0,Position=1,ParameterSetName='Type')][String]$Icon='question',
@@ -4271,10 +4453,10 @@ function New-BHOpenGraphNodeType{
 .DESCRIPTION
     Set BloodHound OpenGraph Node Type Configuration 
 .EXAMPLE
-    Set-BHOpenGraphType Unknown -IconName question -color '#FFF'
+    Set-BHOpenGraphType Unknown -IconName question -color '#FFFFFF'
 #>
 function Set-BHOpenGraphNodeType{
-    [Alias('Set-BHOGType')]
+    [Alias('Set-BHOGNodeType')]
     Param(
         [Parameter(Mandatory=1,Position=0)][Alias('Label','PrimaryKind')][String]$NodeType,
         [Parameter(Mandatory=0,Position=1)][String]$Icon,
@@ -4306,15 +4488,15 @@ function Set-BHOpenGraphNodeType{
     Remove-BHOpenGraphType <$NodeType> [-Force]
 #>
 function Remove-BHOpenGraphNodeType{
-    [Alias('Remove-BHOGType')]
+    [Alias('Remove-BHOGNodeType')]
     Param(
-        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][Alias('Label','PrimaryKind')][String[]]$NodeType,
+        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][Alias('KindName','Label','PrimaryKind')][String[]]$NodeType,
         [Parameter(Mandatory=0)][Switch]$force
         )
     Begin{NoMultiSession}
     Process{Foreach($NType in $NodeType){
         if($Force -OR (Confirm-action "[BH] Delete Custom Node type $Ntype?")){
-            BHAPI /custom-nodes/$NType DELETE
+            BHAPI /custom-nodes/$NType DELETE | Out-Null
             }}}
     End{}###
     }
@@ -4365,15 +4547,16 @@ Function ConvertTo-BHOpenGraphNode{
             Else{Write-Warning "[BH] No ID Property Found. Please specify property to use";RETURN}
             }
         # Props
+        $ExcludeProps += 'objectid'
         $Props = $Obj | Select-Object $SelectProps -exclude $ExcludeProps
         # Objectid/name
-        $Props | Add-Member -MemberType NoteProperty -Name 'objectid' -Value $oID -Force -ea 0
+        #$Props | Add-Member -MemberType NoteProperty -Name 'objectid' -Value $oID -Force -ea 0
         $Props | Add-Member -MemberType NoteProperty -Name 'name' -Value $oName -Force -ea 0
         # OpenGraph out
         [PSCustomObject]@{
             id         = $oID
             kinds      = $Kinds
-            properties = $Props | select objectid,name,* -ea 0
+            properties = $Props | select name,* -ea 0
             }
         }}
     End{}
@@ -4441,6 +4624,102 @@ Function ConvertTo-BHOpenGraphEdge{
 
 <#
 .SYNOPSIS
+    Convert to OpenGraph Edge
+.DESCRIPTION
+    Convert Random Objects to BloodHound OpenGraph Edge Format.
+    (Use -AllowOrphans when Importing edges without already existing nodes in BHE)
+.EXAMPLE
+    $InputObj | ToBHOGEdge -Edge CanAbuse -Start @{id='SourceID'} -End @{id='TargetID'} 
+.EXAMPLE
+    $InputObj| ToBHOGEdge  -Edge CanAbuse -Start @{name='SourceName'} -End @{name='TargetName'} 
+    Will match on name instead of id when importing
+    #>
+Function ConvertTo-BHOpenGraphEdge{
+    [Alias('ToBHOGEdge')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('kind')][string]$EdgeType,
+        [Parameter(Mandatory=0,Position=1)][Alias('Source')][Hashtable]$StartMatch=@{id='SourceID.toupper()'},
+        [Parameter(Mandatory=0,Position=2)][Alias('Target')][Hashtable]$EndMatch=@{id='TargetID.toupper()'},
+        [Parameter(Mandatory=0,Position=3)][Alias('Prop')][String[]]$SelectProps='*',
+        [Parameter(Mandatory=0)][Alias('xProp')][String[]]$ExcludeProps,
+        [Parameter(Mandatory=0)][Alias('aProp')][Hashtable]$AddProps,
+        [Parameter(Mandatory=0)][string]$SourceKind,
+        [Parameter(Mandatory=0)][string]$TargetKind,
+        [Parameter(Mandatory=0)][Switch]$AllowOrphans,
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][PSCustomObject[]]$InputObject
+        )
+    Begin{}
+    Process{Foreach($Obj in $InputObject){
+        # Source
+        $SrcMatch = @()
+        Foreach($Key in $StartMatch.Keys){
+            $Val = $Obj
+            $dot = $StartMatch.$key
+            $dot.split('.')|%{if($_ -match "^toupper\(\)$"){$Val=$Val.toupper()}else{$Val=$Val.$_}}
+            #if($Key -match "^objectid$|^name$"){$Val=$Val.toupper()}
+            $SrcMatch += @{
+                key = $Key
+                operator = 'equals'
+                value = $Val
+                }
+            }
+        $SrcNode = if($SrcMatch.key.count -eq 1 -AND $SrcMatch.key -eq "id"){
+            [PSCustomObject]@{
+            match_by = $SrcMatch.Key
+            value = $SrcMatch.Value
+            }}
+        else{[PSCustomObject]@{
+            match_by = 'property'
+            property_matchers = $SrcMatch
+            }}
+        if($SourceKind){$srcNode|Add-Member -MemberType NoteProperty -Name 'kind' -Value $SourceKind -force} 
+        if($AllowOrphans){$srcNode|Add-Member -MemberType NoteProperty -Name 'allow_orphan' -Value $true} 
+        # Target
+        $TgtMatch = @()
+        Foreach($Key in $EndMatch.Keys){
+            $Val = $Obj
+            $dot = $EndMatch.$key
+            $dot.split('.')|%{$val = if($_ -match "^toupper\(\)$"){$Val.toupper()}else{$Val.$_}}
+            #if($Key -match "^objectid$|^name$"){$Val=$Val.toupper()}
+            $TgtMatch += @{
+                key = $Key
+                operator = 'equals'
+                value = $Val
+                }}
+        $TgtNode = if($tgtMatch.key.count -eq 1 -AND $tgtMatch.key -eq "id"){
+            [PSCustomObject]@{
+            match_by = $tgtMatch.Key
+            value = $tgtMatch.Value
+            }}
+        else{[PSCustomObject]@{
+            match_by = 'property'
+            property_matchers = $TgtMatch
+            }}
+        if($TargetKind){$tgtNode|Add-Member -MemberType NoteProperty -Name 'kind' -Value $TargetKind -force}
+        if($AllowOrphans){$tgtNode|Add-Member -MemberType NoteProperty -Name 'allow_orphan' -Value $true}
+        # Edge
+        $EType = if($EdgeType -eq '*'){if($Obj.edge){$Obj.edge}elseif($Obj.Kind){$Obj.Kind}else{$Obj.Type}}else{$EdgeType}
+        $EType = $EType.Substring(0,1).toUpper() + $EType.Substring(1)
+        # EdgeProps
+        $EProp = $Obj | Select-Object $SelectProps -ExcludeProperty $ExcludeProps
+        Foreach($Key in $AddProps.keys){
+            $EProp | Add-Member -MemberType NoteProperty -Name $Key.tolower() -Value $AddProps.$key
+            }
+        # Output
+        [PSCustomObject]@{
+            kind = $EType
+            start = $srcNode
+            end = $tgtNode
+            properties = $EProp
+            }
+        }}
+    End{}
+    }
+#End
+
+
+<#
+.SYNOPSIS
     New OpenGraph Ingest Payload
 .DESCRIPTION
     Create BloodHound OpenGraph Ingest Payload with OpenGraph Nodes and/or Edges
@@ -4476,6 +4755,7 @@ Function New-BHOpenGraphIngestPayload{
         [Parameter()][string]$CollectorName='CustomCollector',
         [Parameter()][string]$CollectorVersion='beta',
         [Parameter()][String[]]$CollectionMethod='Custom',
+        [Parameter()][string]$SourceKind,
         [Parameter()][Switch]$NoMeta,
         [Parameter(Mandatory=1,ParameterSetName='Arrows',ValueFromPipeline)][String]$FromArrows
         )
@@ -4493,6 +4773,7 @@ Function New-BHOpenGraphIngestPayload{
                 properties = @{collection_methods=@($CollectionMethod)}
                 }
             }
+        If($SourceKind){$Meta | Add-Member -MemberType NoteProperty -Name source_kind -Value $SourceKind}
         $Out=[PSCUstomObject]@{graph=$Graph<#;metadata=$Meta#>}
         if(-Not$NoMeta){$Out|Add-Member -MemberType NoteProperty -Name metadata -Value $Meta}
         if($NoJSON){$Out}else{$out|Convertto-Json -Depth 23 -Compress:$Compress}
@@ -4521,10 +4802,310 @@ Function New-BHOpenGraphIngestPayload{
             CollectorVersion = $CollectorVersion
             CollectionMethod = $CollectionMethod
             }
+        if($SourceKind){$Meta['source_kind']=$SourceKind}
         New-BHOpenGraphIngestPayload -NodeList $NodeL -EdgeList $edgeL -NoJSON:$NoJson -Compress:$Compress @Meta
         }}
     }
 #End
+
+
+
+<#
+.SYNOPSIS
+    Get OG Extensions
+.DESCRIPTION
+    Get BloodHound OpenGraph Extensions
+.EXAMPLE
+    Get-BHOpenGraphExtension
+#>
+function Get-BHOpenGraphExtension{
+    [CmdletBinding()]
+    [Alias('BHOGExtension','Get-BHOGExtension')]
+    Param()
+    BHAPI extensions -Expand data.extensions
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Upload OG Extension
+.DESCRIPTION
+    Upload BloodHound OpenGraph Extension
+.EXAMPLE
+    $ExtensionJson | New-BHOpenGraphExtensionUpload
+#>
+function New-BHOpenGraphExtensionUpload{
+    [CmdletBinding()]
+    [Alias('New-BHOGExtension','Upload-BHOGExtension')]
+    Param(
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][Alias('Schema','Json')][String]$Extension
+        )
+    Begin{}
+    Process{BHAPI extensions POST $Extension}
+    End{} 
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Upload OG Extension
+.DESCRIPTION
+    Upload BloodHound OpenGraph Extension
+.EXAMPLE
+    Remove-BHOpenGraphExtensionUpload -ID $ExtensionID [-Force]
+#>
+function Remove-BHOpenGraphExtension{
+    [Alias('Remove-BHOGExtension')]
+    Param(
+        [Parameter(Mandatory=1,Position=0,ValueFromPipelineByPropertyName=1)][int[]]$ID,
+        [Parameter(Mandatory=0)][Switch]$force
+        )
+    Begin{NoMultiSession
+        $ExtensionList = Get-BHOpenGraphExtension | ? is_builtin -eq $False
+        }
+    Process{Foreach($ExtensionID in $ID){
+        $ExtensionName = ($ExtensionList | ? id -eq $ExtensionID).name
+        if($Force -OR (Confirm-action "[BH] Delete Extension $ExtensionName")){<#BHAPI /extensions/$ExtensionID DELETE#>}
+        }}
+    End{}
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Get OG Edge Type
+.DESCRIPTION
+    Get BloodHound OpenGraph Edge Types
+.EXAMPLE
+    Get-BHOpenGraphEdgeType
+#>
+function Get-BHOpenGraphEdgeType{
+    [Alias('BHOGEdgeType','Get-BHOGEdgeType')]
+    Param(
+        [Parameter(Mandatory=0)][String]$Schema,
+        [Parameter(Mandatory=0)][Switch]$IncludeBuiltIn,
+        [Parameter(Mandatory=0)][Switch]$Traversable
+        )
+    $Obj = BHAPI graph-schema/edges -Expand data | sort name
+    if($Schema){$Obj = $Obj | ? schema_name -eq $Schema}
+    if($Traversable){$Obj = $Obj | ? is_traversable}
+    if($IncludeBuiltIn -OR $Schema){$Obj}
+    Else{$Obj | ? is_builtin -eq $false | select -ExcludeProperty is_builtin}
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Get OG SourceKinds
+.DESCRIPTION
+    Get BloodHound OpenGraph SourceKinds
+.EXAMPLE
+    Get-BHOpenGraphSourceKind
+#>
+function Get-BHOpenGraphSourceKind{
+    [CmdletBinding()]
+    [Alias('BHOGSourceKind','Get-BHOGSourceKind')]
+    Param()
+    BHAPI /api/v2/graphs/source-kinds -expand data.kinds
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    New OG Extension
+.DESCRIPTION
+    Create New OG Json Schema
+.EXAMPLE
+    $OGSchema = New-BHOGSchema GitHub -Prefix GH
+#>
+function New-BHOpenGraphSchema{
+    [Alias('New-BHOGSchema')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][Alias('Model')][String]$Name,
+        [Parameter(Mandatory=0)][Alias('Prefix')][String]$Namespace,
+        [Parameter(Mandatory=0)][String]$Version="0.0.0",
+        #[Parameter(Mandatory=0)][String]$Description,        
+        #[Parameter(Mandatory=0)][String]$Author='unknown',
+        [Parameter(Mandatory=0)][Alias('RootObject')][String]$EnvironmentKind,
+        [Parameter(Mandatory=0)][Alias('BaseType')][String]$Sourcekind,
+        [Parameter(Mandatory=0)][Alias('IdentityTypes')][String[]]$PrincipalKinds='TBD',
+        [Parameter()][Switch]$IncludeFindings
+        )
+    # Lazy Fix
+    if(-Not$Namespace){$Namespace=$Name}
+    if(-Not$EnvironmentKind){$EnvironmentKind="${Namespace}_Environment"}
+    if(-Not$SourceKind){$SourceKind="${Namespace}_Base"}
+    #if(-Not$Description){$Description="This Extension collects $Name objects and relationships"}
+    if($EnvironmentKind-notmatch "^${Namespace}_"){$EnvironmentKind="${Namespace}_$EnvironmentKind"}
+    if($SourceKind-notmatch "^${Namespace}_"){$SourceKind="${Namespace}_$SourceKind"}
+    $PrincipalKinds = Foreach($PKind in $PrincipalKinds){
+        if($PKind -notmatch "^${Namespace}_"){$PKind="${Namespace}_$PKind"}
+        $PKind
+        }
+    # Obj
+    $Schema = [PSCustomObject]@{
+        schema = [PSCustomObject]@{
+            name      = $Name
+            namespace = $Namespace
+            #description = $Description
+            #author = $Author
+            version   = $Version
+            }
+        node_kinds = [Collections.ArrayList]@() 
+        relationship_kinds = [Collections.ArrayList]@()
+        environments = @([PSCustomObject]@{
+            environment_kind = $EnvironmentKind
+            source_kind      = $Sourcekind
+            principal_kinds  = $PrincipalKinds
+            })
+        relationship_findings = [Collections.ArrayList]@()
+        }
+    $Schema = If($IncludeFindings){$Schema}else{$Schema|Select-Object -ExcludeProperty relationship_findings}
+    $Schema|Convertto-json -depth 21
+    }
+#End
+
+<#
+.SYNOPSIS
+    Add OG Schema Node Kind
+.DESCRIPTION
+    Add OG Node Kind to OG Json Schema
+.EXAMPLE
+    $OGSchema | Add-BHOGSchemaNode ThisNodeKind
+#>
+Function Add-BHOpenGraphSchemaNodeKind{
+    [Alias('Add-BHOGSchemaNode')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][String]$Name,
+        [Parameter()][String]$DisplayName,
+        [Parameter()][String]$Description='Node description goes here',
+        [Parameter()][Bool][Alias('DisplayKind')]$IsDisplayKind=$True,
+        [Parameter()][String]$Icon='question-mark',
+        [Parameter()][String]$Color='#FFFFFF',
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][String]$InputObject
+        )
+    Process{
+        $Obj = $InputObject | Convertfrom-Json -depth 21 -AsHashtable
+        $Prefix = $Obj.schema.namespace
+        # Lazy Fix
+        if($Name -notmatch "^${Prefix}_"){$Name = "${Prefix}_$Name"}
+        # Node Def
+        $NodeKind = [PSCustomObject]@{
+            name            = $Name
+            display_name    = if($DisplayName){$DisplayName}else{"$($Obj.schema.name) $($Name.TrimStart("$Prefix").TrimStart("_"))"}
+            description     = $Description
+            is_display_kind = $IsDisplayKind
+            icon            = $Icon
+            color           = $Color
+            }
+        $Obj.node_kinds += $NodeKind
+        # Output
+        $Obj | ConvertTo-Json -Depth 21
+        }    
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Add OG Schema Edge Kind
+.DESCRIPTION
+    Add OG Edge Kind to OG Json Schema
+.EXAMPLE
+    $OGSchema | Add-BHOGSchemaEdge ThisEdge
+#>
+Function Add-BHOpenGraphSchemaEdgeKind{
+    [Alias('Add-BHOGSchemaEdge')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][String]$Name,
+        [Parameter()][String]$Description='Edge description goes here',
+        [Parameter()][Bool][Alias('Traversable')]$IsTraversable=$True,
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][String]$InputObject
+        )
+    Process{
+        $Obj = $InputObject | Convertfrom-Json -depth 21 -AsHashtable
+        $Prefix = $Obj.schema.namespace
+        # Lazy Fix
+        if($Name -notmatch "^${Prefix}_"){$Name = "${Prefix}_$Name"}
+        # Edge Def
+        $EdgeKind = [PSCustomObject]@{
+            name           = $Name
+            description    = $Description
+            is_traversable = $IsTraversable
+            }
+        $Obj.relationship_kinds += $EdgeKind
+        # Finding
+        if($Obj.keys -contains "relationship_findings" -AND $IsTraversable){
+            $FindingObj = [PSCustomObject]@{
+                name = "${Name}_Finding"
+                display_name = "$($Obj.schema.name) $($Name.TrimStart("$Prefix").TrimStart("_")) Finding ($Prefix)"
+                relationship_kind = $Name
+                environment_kind = ($Obj.environments[0]).environment_kind
+                remediation = [PSCustomObject]@{
+                    short_description = "Short description goes here"
+                    long_description  = "Long description goes here"
+                    short_remediation = "Short remediation goes here"
+                    long_remediation  = "Long remediation goes here"
+                    }
+                }
+            $Obj.relationship_findings += $FindingObj
+            }
+        # Output
+        $Obj | Convertto-json -depth 21
+        }
+    }
+#End
+
+
+<#
+.SYNOPSIS
+    Add OG Schema Findings
+.DESCRIPTION
+    Add OG Findings to OG Json Schema
+.EXAMPLE
+    $OGSchema | Add-BHOGSchemaFinding
+#>
+function Add-BHOpenGraphSchemaFinding{
+    [Alias('Add-BHOGSchemaFinding')]
+    Param(
+        [Parameter(Mandatory=1,ValueFromPipeline=1)][String]$InputObject
+        )
+    Process{
+        $Obj = $InputObject | Convertfrom-Json -depth 21 -AsHashtable
+        $Prefix = $Obj.schema.namespace
+        if(-Not("relationship_findings" -In $Obj.keys)){$Obj["relationship_findings"] = @()}
+        $ListF = $Obj.relationship_findings.relationship_kind
+        foreach($rel in $Obj.relationship_kinds){
+            $Name = $rel.name
+            if($Rel.is_traversable -eq 'True' -AND $name -notin $ListF){
+                $FindingObj = [PSCustomObject]@{
+                    name = "${Name}_Finding"
+                    display_name = "$($Obj.schema.name) $($Name.TrimStart("$Prefix").TrimStart("_")) Finding ($Prefix)"
+                    relationship_kind = $Name
+                    environment_kind = ($Obj.environments[0]).environment_kind
+                    remediation = [PSCustomObject]@{
+                        short_description = "Short description goes here"
+                        long_description  = "Long description goes here"
+                        short_remediation = "Short remediation goes here"
+                        long_remediation  = "Long remediation goes here"
+                        }
+                    }
+                $Obj.relationship_findings += $FindingObj
+                }
+            }
+        # Output
+        $Obj | Convertto-json -depth 21
+        }
+    }
+#End
+
+
+
 
 ### BloodHoundOperator - BHUtils
 # Read-SecureString
@@ -4844,6 +5425,24 @@ function NoMultiSession{
     }
 #End
 
+
+#######################
+
+function Select-Expand{
+    [Alias('Expand','dot')]
+    Param(
+        [Parameter(Mandatory=1,Position=0)][string]$Property,
+        [Parameter(Mandatory=1,ValueFromPipeline=1)]$Object
+        )
+    Begin{}
+    Process{
+        Foreach($Prop in $Property.split('.')){$Object=$Object.$Prop}
+        $Object
+        }
+    End{}
+    }
+#End
+
 ###########################################
 ## BloodHound Operator - BHE-Only endpoints
 # Approve-BHOperatorEULA
@@ -4990,7 +5589,8 @@ enum BHJobStatus{
 	Ingesting
 	Analyzing
 	PartialyComplete
-}
+    }
+#End
 
 # BHEOnly ################################################ BHOperatorEULA
 
